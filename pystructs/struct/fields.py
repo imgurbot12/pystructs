@@ -74,7 +74,7 @@ class Property:
 @dataclass
 class Field:
     name:     str
-    type:     Codec
+    type:     Type[Codec]
     init:     bool = True
     default:  Any  = None
     dataattr: bool = True
@@ -90,12 +90,12 @@ class Spec:
     metadata:        Optional[Mapping[Any, Any]] = None
     kw_only:         bool                        = False
  
-    def compile(self, name: str, anno: Codec) -> Tuple[Field, DataField]:
+    def compile(self, name: str, anno: Type[Codec]) -> Tuple[Field, DataField]:
         """compile field-spec into official field"""
         init = anno.init if self.init is None else anno.init
         return (Field(name, anno, init), DataField(
             default=not_missing(self.default, anno.default),
-            default_factory=self.default_factory or MISSING,
+            default_factory=self.default_factory or MISSING, #type: ignore
             init=init,
             repr=self.repr,
             hash=self.hash,

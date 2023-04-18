@@ -20,14 +20,9 @@ __all__ = [
 
 #** Functions **#
 
-def singleton(cls: Type[Codec]):
-    """spawn singleton codec type"""
-    return cls()
-
-def codec(name: str, base: Type[Codec], **kwargs) -> Codec:
+def codec(name: str, base: Type[Codec], **kwargs) -> Type[Codec]:
     """spawn new singleton codec type"""
-    new_codec = type(name, (base, ), kwargs)
-    return new_codec()
+    return type(name, (base, ), kwargs)
 
 #** Classes **#
 
@@ -40,7 +35,7 @@ class Const(Codec):
     default:   bytes
     base_type: type
 
-    def __class_getitem__(cls, const: bytes) -> Codec:
+    def __class_getitem__(cls, const: bytes) -> Type[Codec]:
         """generate const type w/ given const"""
         name = cls.__name__
         return codec(f'{name}[{const!r}]', cls, 
@@ -68,7 +63,7 @@ class Int(Codec):
     wrap: ClassVar[Callable[[int], Any]]
     base_type: type
  
-    def __class_getitem__(cls, s: Union[int, tuple]) -> Codec:
+    def __class_getitem__(cls, s: Union[int, tuple]) -> Type[Codec]:
         """generate custom Int subclass with the given options"""
         size = s if isinstance(s, int) else s[0]
         wrap = s[1] if isinstance(s, tuple) and len(s) > 1 else lambda x: x
@@ -100,7 +95,7 @@ class IpAddr(Codec):
     ip_type:   Union[Type[IPv4Address], Type[IPv6Address]]
     base_type: Union[type, tuple] = (str, bytes)
 
-    def __class_getitem__(cls, iptype: str) -> Codec:
+    def __class_getitem__(cls, iptype: str) -> Type[Codec]:
         """generate ipv4 or ipv6 ipaddress supporting codec type"""
         assert iptype in ('ipv4', 'ipv6'), 'invalid ipaddress type'
         size = 4 if iptype == 'ipv4' else 16
@@ -118,7 +113,6 @@ class IpAddr(Codec):
         data = ctx.slice(raw, cls.size)
         return cls.ip_type(data)
 
-@singleton
 class MacAddr(Codec):
     """
     Serialized MacAddress Codec
@@ -145,7 +139,7 @@ class SizedBytes(Codec):
     hint:      Codec
     base_type: type
  
-    def __class_getitem__(cls, hint: int) -> Codec:
+    def __class_getitem__(cls, hint: int) -> Type[Codec]:
         name   = cls.__name__
         hcodec = Int[hint]
         return codec(f'{name}[{hint!r}]', cls, hint=hcodec, base_type=bytes)
@@ -170,7 +164,7 @@ class StaticBytes(Codec):
     size:      int
     base_type: type
 
-    def __class_getitem__(cls, size: int) -> Codec:
+    def __class_getitem__(cls, size: int) -> Type[Codec]:
         name = cls.__name__
         return codec(f'{name}[{size!r}]', cls, size=size, base_type=bytes)
 
@@ -185,7 +179,6 @@ class StaticBytes(Codec):
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
         return ctx.slice(raw, cls.size).rstrip(b'\x00')
 
-@singleton
 class Domain(Codec):
     """
     DNS Style Domain Serialization w/ Index Pointers to Eliminate Duplicates

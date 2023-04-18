@@ -3,7 +3,7 @@ Base Codec Definitions
 """
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Protocol, Any
+from typing import Dict, Protocol, Any, ClassVar
 from typing_extensions import runtime_checkable
 
 #** Variables **#
@@ -48,8 +48,8 @@ class Context:
 @runtime_checkable
 class Codec(Protocol):
     """Encoding/Decoding Codec Protocol"""
-    init:      bool = True
-    default:   Any  = None
+    init:      ClassVar[bool] = True
+    default:   ClassVar[Any]  = None
     base_type: type
 
     @classmethod
