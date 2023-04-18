@@ -117,6 +117,9 @@ class Struct(Generic[T]):
             value = getattr(self, name, field.default or MISSING)
             if value is MISSING:
                 raise ValueError(f'{cname(self)} missing attr {name!r}')
+            # ensure value is a valid type
+            if not isinstance(value, field.type.base_type):
+                raise ValueError(f'{cname(self)}.{name} invalid value: {value!r}')
             # encode it according it's associated codec
             encoded += field.type.encode(ctx, value)
         return bytes(encoded)

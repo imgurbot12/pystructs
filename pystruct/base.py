@@ -97,25 +97,26 @@ class IpAddr(Codec):
     Example: IpAddr['ipv4'] or IpAddr['ipv6']
     """
     size:      int
-    base_type: Union[Type[IPv4Address], Type[IPv6Address]]
+    ip_type:   Union[Type[IPv4Address], Type[IPv6Address]]
+    base_type: Union[type, tuple] = (str, bytes)
 
     def __class_getitem__(cls, iptype: str) -> Codec:
         """generate ipv4 or ipv6 ipaddress supporting codec type"""
         assert iptype in ('ipv4', 'ipv6'), 'invalid ipaddress type'
         size = 4 if iptype == 'ipv4' else 16
         addr = IPv4Address if iptype == 'ipv4' else IPv6Address
-        return codec(f'IPv{iptype[-1]}', cls, size=size, base_type=addr)
+        return codec(f'IPv{iptype[-1]}', cls, size=size, ip_type=addr)
 
     @classmethod
     def encode(cls, ctx: Context, value: Union[str, bytes]) -> bytes:
-        packed = cls.base_type(value).packed
+        packed = cls.ip_type(value).packed
         ctx.index += len(packed)
         return packed
 
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> Union[IPv4Address, IPv6Address]:
         data = ctx.slice(raw, cls.size)
-        return cls.base_type(data)
+        return cls.ip_type(data)
 
 @singleton
 class MacAddr(Codec):
@@ -189,27 +190,27 @@ class Domain(Codec):
     """
     DNS Style Domain Serialization w/ Index Pointers to Eliminate Duplicates
     """
-    ptr_mask  = 0xC0
-    base_type = bytes
+    ptr_mask:  int  = 0xC0
+    base_type: type = bytes
 
     @classmethod
-    def encode(cls, ctx: Context, domain: bytes) -> bytes:
+    def encode(cls, ctx: Context, value: bytes) -> bytes:
         encoded = bytearray()
-        while domain:
+        while value:
             # check if ptr is an option for remaining domain
-            if domain in ctx.domain_to_index:
-                index      = ctx.domain_to_index[domain]
+            if value in ctx.domain_to_index:
+                index      = ctx.domain_to_index[value]
                 pointer    = index.to_bytes(2, 'big')
                 encoded   += bytes((pointer[0] | cls.ptr_mask, pointer[1]))
                 ctx.index += 2 
                 return bytes(encoded)
             # save partial domain as index
-            ctx.save_domain(domain, ctx.index)
+            ctx.save_domain(value, ctx.index)
             # handle components of name
-            split        = domain.split(b'.', 1)
-            name, domain = split if len(split) == 2 else (split[0], b'')
-            encoded     += len(name).to_bytes(1, 'big') + name
-            ctx.index   += 1 + len(name)
+            split       = value.split(b'.', 1)
+            name, value = split if len(split) == 2 else (split[0], b'')
+            encoded    += len(name).to_bytes(1, 'big') + name
+            ctx.index  += 1 + len(name)
         # write final zeros before returning final encoded data
         encoded   += b'\x00'
         ctx.index += 1

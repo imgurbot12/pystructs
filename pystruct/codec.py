@@ -3,7 +3,7 @@ Base Codec Definitions
 """
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Protocol, Any, Union
+from typing import Dict, Protocol, Any
 from typing_extensions import runtime_checkable
 
 #** Variables **#
