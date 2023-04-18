@@ -1,6 +1,6 @@
 PyStruct
 ---------
-Serialization Helpers for More Complex Data-Types
+Dataclass-Like Serialization Helpers for More Complex Data-Types
 
 This library allows for easy encoding/decoding of standardized struct-like
 objects. However, it's designed to avoid any dynamic parsing or encoding
