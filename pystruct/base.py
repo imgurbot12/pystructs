@@ -31,31 +31,31 @@ def codec(name: str, base: Type[Codec], **kwargs) -> Codec:
 
 #** Classes **#
 
-@singleton
 class Const(Codec):
     """
     Bytes Constant to Inlcude in Serialized Data
     """
     size:      int
-    const:     bytes
+    init:      bool = False
+    default:   bytes
     base_type: type
 
     def __class_getitem__(cls, const: bytes) -> Codec:
         """generate const type w/ given const"""
         name = cls.__name__
         return codec(f'{name}[{const!r}]', cls, 
-            size=len(const), const=const, base_type=bytes)
+            size=len(const), default=const, base_type=bytes)
 
     @classmethod
     def encode(cls, ctx: Context, value: bytes) -> bytes:
-        assert value == cls.const, f'{value} does not match {cls}'
+        assert value == cls.default, f'{value} does not match {cls}'
         ctx.index += cls.size
-        return cls.const
+        return cls.default
     
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
         value = ctx.slice(raw, cls.size)
-        assert value == cls.const, f'{value} does not match {cls}'
+        assert value == cls.default, f'{value} does not match {cls}'
         return value
 
 class Int(Codec):
@@ -78,9 +78,9 @@ class Int(Codec):
         return codec(cname, cls, size=size // 8, wrap=wrap, base_type=int)
 
     @classmethod
-    def encode(cls, ctx: Context, i: int) -> bytes:
+    def encode(cls, ctx: Context, value: int) -> bytes:
         ctx.index += cls.size
-        return i.to_bytes(cls.size, 'big')
+        return value.to_bytes(cls.size, 'big')
 
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> int:
@@ -107,8 +107,8 @@ class IpAddr(Codec):
         return codec(f'IPv{iptype[-1]}', cls, size=size, base_type=addr)
 
     @classmethod
-    def encode(cls, ctx: Context, ip: Union[str, bytes]) -> bytes:
-        packed = cls.base_type(ip).packed
+    def encode(cls, ctx: Context, value: Union[str, bytes]) -> bytes:
+        packed = cls.base_type(value).packed
         ctx.index += len(packed)
         return packed
 
@@ -126,8 +126,8 @@ class MacAddr(Codec):
     replace:   re.Pattern = re.compile('[:.-]')
   
     @classmethod
-    def encode(cls, ctx: Context, mac: str) -> bytes:
-        content = bytes.fromhex(cls.replace.sub('', mac))
+    def encode(cls, ctx: Context, value: str) -> bytes:
+        content = bytes.fromhex(cls.replace.sub('', value))
         ctx.index += len(content)
         return content
 
@@ -177,7 +177,7 @@ class StaticBytes(Codec):
     def encode(cls, ctx: Context, content: bytes) -> bytes:
         assert len(content) <= cls.size, f'len(content) >= {cls.size} bytes'
         ctx.index += cls.size
-        content = content.rjust(cls.size, b'\x00')
+        content = content.ljust(cls.size, b'\x00')
         return content
 
     @classmethod
@@ -189,8 +189,8 @@ class Domain(Codec):
     """
     DNS Style Domain Serialization w/ Index Pointers to Eliminate Duplicates
     """
-    ptr_mask:  int  = 0xC0
-    base_type: type = bytes
+    ptr_mask  = 0xC0
+    base_type = bytes
 
     @classmethod
     def encode(cls, ctx: Context, domain: bytes) -> bytes:

@@ -8,6 +8,7 @@ from .codec import *
 __all__ = [
     'Codec',
     'Context',
+    'Const',
     'Int',
     'Int8',
     'Int16',
@@ -22,6 +23,7 @@ __all__ = [
     'StaticBytes',
     'Domain',
 
+    'field',
     'struct',
     'make_struct',
     'Struct',

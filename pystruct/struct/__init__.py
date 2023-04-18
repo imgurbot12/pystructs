@@ -8,11 +8,12 @@ __all__ = [
     'InitVar',
     'ClassVar',
     
+    'field',
     'struct',
     'make_struct',
     'Struct',
 ]
 
 #** Imports **#
-from .fields import Property, InitVar, ClassVar
-from .struct import struct, make_struct, Struct
+from .fields import Property, InitVar, ClassVar, field
+from .struct import Struct, struct, make_struct

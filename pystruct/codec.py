@@ -48,7 +48,9 @@ class Context:
 @runtime_checkable
 class Codec(Protocol):
     """Encoding/Decoding Codec Protocol"""
-    base_type: Union[type, tuple]
+    init:      bool = True
+    default:   Any  = None
+    base_type: type
 
     @classmethod
     @abstractmethod

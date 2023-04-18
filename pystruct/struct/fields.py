@@ -1,22 +1,32 @@
 """
 Struct Field Implementation
 """
-from dataclasses import InitVar, dataclass
-from typing import ClassVar, Union, Type, get_origin
+from dataclasses import InitVar, MISSING, dataclass
+from dataclasses import Field as DataField
+from typing import *
 from typing_extensions import Self
 
 from .. import Codec, Int32
 
 #** Variables **#
 __all__ = [
+    'MISSING',
+    'DataField',
+
+    'field',
     'cname',
     'is_datavar',
     'compile_annotation',
     'Property',
     'Field',
+    'Spec',
 ]
 
 #** Functions **#
+
+def field(*args, **kwargs) -> 'Spec':
+    """generate field w/ following specifications"""
+    return Spec(*args, **kwargs)
 
 def cname(seq: Union[object, type]) -> str:
     """retrieve class name of object or type"""
@@ -28,6 +38,14 @@ def is_datavar(anno: type) -> bool:
     """check if datatype is ClassVar or InitVar"""
     origin = get_origin(anno)
     return origin in (ClassVar, InitVar)
+
+def not_missing(*args) -> Any:
+    """return first arguent that is not missing"""
+    assert len(args) > 0, 'no args provided'
+    for arg in args:
+        if arg is not MISSING:
+            return arg
+    return MISSING
 
 def compile_annotation(name: str, anno: type, level: int = 1):
     """compile given annotation into a valid Codec or tupported type"""
@@ -56,5 +74,32 @@ class Property:
 @dataclass
 class Field:
     name:     str
-    type:     Type[Codec]
+    type:     Codec
+    init:     bool = True
+    default:  Any  = None
     dataattr: bool = True
+
+@dataclass
+class Spec:
+    default:         Any                         = MISSING
+    default_factory: Optional[Callable[[], Any]] = None
+    init:            Optional[bool]              = None
+    repr:            bool                        = True
+    hash:            Optional[bool]              = None
+    compare:         bool                        = True
+    metadata:        Optional[Mapping[Any, Any]] = None
+    kw_only:         bool                        = False
+ 
+    def compile(self, name: str, anno: Codec) -> Tuple[Field, DataField]:
+        """compile field-spec into official field"""
+        init = anno.init if self.init is None else anno.init
+        return (Field(name, anno, init), DataField(
+            default=not_missing(self.default, anno.default),
+            default_factory=self.default_factory or MISSING,
+            init=init,
+            repr=self.repr,
+            hash=self.hash,
+            compare=self.compare,
+            metadata=self.metadata or {},
+            kw_only=self.kw_only,
+        ))

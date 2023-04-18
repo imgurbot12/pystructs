@@ -21,9 +21,6 @@ FIELDS = '__encoded__'
 #: annotations field on class objects
 ANNOTATIONS = '__annotations__'
 
-#: placeholder type instead of None to allow for None as a default
-MISSING = type('MISSING', (), {})
-
 #** Functions **#
 
 def struct(cls: Optional[Type[T]] = None, **kwargs) -> Type['Struct[T]']:
@@ -63,7 +60,8 @@ def make_struct(cls: Type[T], **kwargs) -> Type['Struct[T]']:
             delattr(cls, name)
         # parse attribute into field if not already
         anno  = compile_annotation(name, anno)
-        field = Field(name, anno)
+        value = value if isinstance(value, Spec) else Spec(value)
+        field, value = value.compile(name, anno)
         fields[name] = field
         # process property types
         if isinstance(anno, Property):
@@ -80,6 +78,8 @@ def make_struct(cls: Type[T], **kwargs) -> Type['Struct[T]']:
             continue
         # process standard codec-types
         if isinstance(anno, Codec):
+            field.init        = anno.init
+            field.default     = anno.default or field.default
             annotations[name] = anno.base_type
             values[name]      = value
     # generate bases for new sequence dataclass
@@ -91,7 +91,7 @@ def make_struct(cls: Type[T], **kwargs) -> Type['Struct[T]']:
     return dataclassfunc(type(cname(cls), tuple(bases), { #type: ignore
         FIELDS:      fields,
         ANNOTATIONS: annotations,
-        **values
+        **{k:v for k,v in values.items() if v is not MISSING}
     }))
 
 #** Classes **#
@@ -114,7 +114,7 @@ class Struct(Generic[T]):
         encoded = bytearray()
         for name, field in self.__encoded__.items():
             # retrieve value for the given attribute
-            value = getattr(self, name, MISSING)
+            value = getattr(self, name, field.default or MISSING)
             if value is MISSING:
                 raise ValueError(f'{cname(self)} missing attr {name!r}')
             # encode it according it's associated codec
@@ -126,5 +126,7 @@ class Struct(Generic[T]):
         """decode the given raw-bytes into a compiled sequence"""
         kwargs = {}
         for name, field in cls.__encoded__.items():
-            kwargs[name] = field.type.decode(ctx, raw)
+            value = field.type.decode(ctx, raw)
+            if field.init:
+                kwargs[name] = value
         return cls(**kwargs)
