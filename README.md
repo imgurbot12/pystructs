@@ -1,4 +1,4 @@
-PyStruct
+PyStructs
 ---------
 Dataclass-Like Serialization Helpers for More Complex Data-Types
 
@@ -11,13 +11,13 @@ and to make for a simpler and more understandable codebase.
 ### Installation
 
 ```
-pip install pystruct3
+pip install pystructs3
 ```
 
 ### Examples
 
 ```python
-from pystruct import *
+from pystructs import *
 
 @struct
 class A:
