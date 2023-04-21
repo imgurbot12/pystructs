@@ -66,7 +66,9 @@ def compile_annotation(name: str, anno: type, level: int = 1):
 
 @dataclass
 class Property:
-    hint: type
+    hint:    type
+    init:    ClassVar[bool] = False
+    default: ClassVar[Any]  = MISSING
 
     def __class_getitem__(cls, hint: type) -> Self:
         return cls(hint)

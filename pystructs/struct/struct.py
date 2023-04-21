@@ -10,7 +10,7 @@ from .fields import *
 from ..base import Context, Codec
 
 #** Variables **#
-__all__ = ['struct', 'make_struct', 'Struct']
+__all__ = ['fields', 'struct', 'make_struct', 'Struct']
 
 #: generic typevar to help with type definitions
 T = TypeVar('T')
@@ -22,6 +22,12 @@ FIELDS = '__encoded__'
 ANNOTATIONS = '__annotations__'
 
 #** Functions **#
+
+def fields(struct) -> Dict[str, Field]:
+    """
+    retrieve list of fields associated w/ the specified struct
+    """
+    return getattr(struct, FIELDS)
 
 def struct(cls: Optional[Type[T]] = None, **kwargs) -> Type['Struct[T]']:
     """
@@ -53,6 +59,8 @@ def make_struct(cls: Type[T], **kwargs) -> Type['Struct[T]']:
         # skip processing if annotation is a InitVar or ClassVar
         anno = annotations[name]
         if is_datavar(anno):
+            if name in fields:
+                del fields[name]
             continue
         # retrieve default value
         value = getattr(cls, name, MISSING)
@@ -69,6 +77,7 @@ def make_struct(cls: Type[T], **kwargs) -> Type['Struct[T]']:
             del annotations[name]
             field.type     = anno.hint
             field.dataattr = False
+            value          = value.default
             # validate property function value
             if not isinstance(value, property):
                 if not callable(value):
@@ -86,6 +95,8 @@ def make_struct(cls: Type[T], **kwargs) -> Type['Struct[T]']:
     bases = list(cls.__mro__)
     if Struct not in bases:
         bases.insert(1, Struct)
+    if Generic in bases:
+        bases.remove(Generic)
     # generate new unique object w/ fields parsed from original
     dataclassfunc = dataclasses.dataclass(**kwargs)
     return dataclassfunc(type(cname(cls), tuple(bases), { #type: ignore

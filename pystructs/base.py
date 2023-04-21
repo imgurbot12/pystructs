@@ -15,6 +15,7 @@ __all__ = [
     'MacAddr',
     'SizedBytes',
     'StaticBytes',
+    'GreedyBytes',
     'Domain',
 ]
 
@@ -40,6 +41,10 @@ class Const(Codec):
         name = cls.__name__
         return codec(f'{name}[{const!r}]', cls, 
             size=len(const), default=const, base_type=bytes)
+    
+    @classmethod
+    def sizeof(cls) -> int:
+        return cls.size
 
     @classmethod
     def encode(cls, ctx: Context, value: bytes) -> bytes:
@@ -71,6 +76,10 @@ class Int(Codec):
         assert size % 8 == 0, 'size must be multiple of eight'
         cname = f'{name}[{size}]'
         return codec(cname, cls, size=size // 8, wrap=wrap, base_type=int)
+    
+    @classmethod
+    def sizeof(cls) -> int:
+        return cls.size
 
     @classmethod
     def encode(cls, ctx: Context, value: int) -> bytes:
@@ -93,7 +102,7 @@ class IpAddr(Codec):
     """
     size:      int
     ip_type:   Union[Type[IPv4Address], Type[IPv6Address]]
-    base_type: Union[type, tuple] = (str, bytes)
+    base_type: Union[type, tuple] = (str, bytes, IPv4Address)
 
     def __class_getitem__(cls, iptype: str) -> Type[Codec]:
         """generate ipv4 or ipv6 ipaddress supporting codec type"""
@@ -103,9 +112,14 @@ class IpAddr(Codec):
         return codec(f'IPv{iptype[-1]}', cls, size=size, ip_type=addr)
 
     @classmethod
+    def sizeof(cls) -> int:
+        return cls.size
+
+    @classmethod
     def encode(cls, ctx: Context, value: Union[str, bytes]) -> bytes:
-        packed = cls.ip_type(value).packed
-        ctx.index += len(packed)
+        ipaddr = value if isinstance(value, cls.ip_type) else cls.ip_type(value)
+        packed = ipaddr.packed
+        ctx.index += cls.size
         return packed
 
     @classmethod
@@ -120,6 +134,10 @@ class MacAddr(Codec):
     base_type: type       = str
     replace:   re.Pattern = re.compile('[:.-]')
   
+    @classmethod
+    def sizeof(cls) -> int:
+        return 6
+
     @classmethod
     def encode(cls, ctx: Context, value: str) -> bytes:
         content = bytes.fromhex(cls.replace.sub('', value))
@@ -136,7 +154,7 @@ class SizedBytes(Codec):
 
     Example: SizedBytes[32]
     """
-    hint:      Codec
+    hint:      Int
     base_type: type
  
     def __class_getitem__(cls, hint: int) -> Type[Codec]:
@@ -167,6 +185,10 @@ class StaticBytes(Codec):
     def __class_getitem__(cls, size: int) -> Type[Codec]:
         name = cls.__name__
         return codec(f'{name}[{size!r}]', cls, size=size, base_type=bytes)
+    
+    @classmethod
+    def sizeof(cls) -> int:
+        return cls.size
 
     @classmethod
     def encode(cls, ctx: Context, content: bytes) -> bytes:
@@ -178,6 +200,23 @@ class StaticBytes(Codec):
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
         return ctx.slice(raw, cls.size).rstrip(b'\x00')
+
+class GreedyBytes(Codec):
+    """
+    Variable Bytes that Greedily Collects all Bytes left in Data
+    """
+    base_type: type = bytes
+ 
+    @classmethod
+    def encode(cls, ctx: Context, value: Any) -> bytes:
+        ctx.index += len(value)
+        return value
+
+    @classmethod
+    def decode(cls, ctx: Context, raw: bytes) -> bytes:
+        data = raw[ctx.index:]
+        ctx.index += len(data)
+        return data
 
 class Domain(Codec):
     """

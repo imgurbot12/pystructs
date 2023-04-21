@@ -51,6 +51,11 @@ class Codec(Protocol):
     init:      ClassVar[bool] = True
     default:   ClassVar[Any]  = None
     base_type: type
+    
+    @classmethod
+    def sizeof(cls) -> int:
+        name = cls.__name__
+        raise RuntimeError(f'Cannot get sizeof {name!r}')
 
     @classmethod
     @abstractmethod
