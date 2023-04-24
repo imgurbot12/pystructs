@@ -1,9 +1,11 @@
 """
 Base Common Sequence Types
 """
+from abc import abstractmethod
 import re
 from ipaddress import IPv4Address, IPv6Address
-from typing import ClassVar, Callable, Any, Union, Type
+from typing import ClassVar, Callable, Any, Protocol, Union, Type
+from typing_extensions import runtime_checkable
 
 from .codec import Codec, Context
 
@@ -58,6 +60,13 @@ class Const(Codec):
         assert value == cls.default, f'{value} does not match {cls}'
         return value
 
+@runtime_checkable
+class IntLike(Protocol):
+
+    @abstractmethod
+    def __int__(self) -> int:
+        raise NotImplementedError
+
 class Int(Codec):
     """
     Variable Size Integer Codec Definition
@@ -75,16 +84,16 @@ class Int(Codec):
         name = s[2] if isinstance(s, tuple) and len(s) > 2 else cls.__name__
         assert size % 8 == 0, 'size must be multiple of eight'
         cname = f'{name}[{size}]'
-        return codec(cname, cls, size=size // 8, wrap=wrap, base_type=int)
+        return codec(cname, cls, size=size // 8, wrap=wrap, base_type=IntLike)
     
     @classmethod
     def sizeof(cls) -> int:
         return cls.size
 
     @classmethod
-    def encode(cls, ctx: Context, value: int) -> bytes:
+    def encode(cls, ctx: Context, value: IntLike) -> bytes:
         ctx.index += cls.size
-        return value.to_bytes(cls.size, 'big')
+        return int(value).to_bytes(cls.size, 'big')
 
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> int:
