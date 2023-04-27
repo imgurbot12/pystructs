@@ -2,6 +2,7 @@
 Struct Field Implementation
 """
 from dataclasses import InitVar, MISSING, dataclass
+from dataclasses import field as datafield
 from dataclasses import Field as DataField
 from typing import *
 from typing_extensions import Self
@@ -89,19 +90,17 @@ class Spec:
     repr:            bool                        = True
     hash:            Optional[bool]              = None
     compare:         bool                        = True
-    metadata:        Optional[Mapping[Any, Any]] = None
-    kw_only:         bool                        = False
- 
+    kwargs:          dict                        = datafield(default_factory=dict)
+
     def compile(self, name: str, anno: Type[Codec]) -> Tuple[Field, DataField]:
         """compile field-spec into official field"""
         init = anno.init if self.init is None else anno.init
-        return (Field(name, anno, init), DataField(
+        return (Field(name, anno, init), datafield(
             default=not_missing(self.default, anno.default),
             default_factory=self.default_factory or MISSING, #type: ignore
             init=init,
             repr=self.repr,
             hash=self.hash,
             compare=self.compare,
-            metadata=self.metadata or {},
-            kw_only=self.kw_only,
+            **self.kwargs,
         ))
