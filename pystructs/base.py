@@ -7,7 +7,7 @@ from ipaddress import IPv4Address, IPv6Address
 from typing import ClassVar, Callable, Any, Protocol, Union, Type
 from typing_extensions import runtime_checkable
 
-from .codec import Codec, Context
+from .codec import Codec, Context, CodecError
 
 #** Variables **#
 __all__ = [
@@ -43,21 +43,23 @@ class Const(Codec):
         name = cls.__name__
         return codec(f'{name}[{const!r}]', cls, 
             size=len(const), default=const, base_type=bytes)
-    
+
     @classmethod
     def sizeof(cls) -> int:
         return cls.size
 
     @classmethod
     def encode(cls, ctx: Context, value: bytes) -> bytes:
-        assert value == cls.default, f'{value} does not match {cls}'
+        if value != cls.default:
+            raise CodecError(f'{value!r} does not match {cls}')
         ctx.index += cls.size
         return cls.default
-    
+ 
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
         value = ctx.slice(raw, cls.size)
-        assert value == cls.default, f'{value} does not match {cls}'
+        if value != cls.default:
+            raise CodecError(f'{value!r} does not match {cls}')
         return value
 
 @runtime_checkable
@@ -73,8 +75,9 @@ class Int(Codec):
 
     Examples: Int[16], Int[32], Int[64, MyIntEnum]
     """
-    size: ClassVar[int]
-    wrap: ClassVar[Callable[[int], Any]]
+    size:      ClassVar[int]
+    bitsize:   ClassVar[int]
+    wrap:      ClassVar[Callable[[int], Any]]
     base_type: type
  
     def __class_getitem__(cls, s: Union[int, tuple]) -> Type[Codec]:
@@ -82,24 +85,28 @@ class Int(Codec):
         size = s if isinstance(s, int) else s[0]
         wrap = s[1] if isinstance(s, tuple) and len(s) > 1 else lambda x: x
         name = s[2] if isinstance(s, tuple) and len(s) > 2 else cls.__name__
-        assert size % 8 == 0, 'size must be multiple of eight'
+        if size % 8 != 0:
+            raise CodecError(f'{cls.__name__} size={size!r} not multiple of 8')
         cname = f'{name}[{size}]'
-        return codec(cname, cls, size=size // 8, wrap=wrap, base_type=IntLike)
-    
+        return codec(cname, cls, 
+            bitsize=size, size=size // 8, wrap=wrap, base_type=IntLike)
+ 
     @classmethod
     def sizeof(cls) -> int:
         return cls.size
 
     @classmethod
     def encode(cls, ctx: Context, value: IntLike) -> bytes:
+        if int(value) >= (2**cls.bitsize):
+            raise CodecError(f'{cls.__name__} {value!r} too large')
         ctx.index += cls.size
         return int(value).to_bytes(cls.size, 'big')
 
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> int:
         data = ctx.slice(raw, cls.size)
-        size = cls.size * 8
-        assert len(data) == cls.size, f'len(bytes)[{len(data)}] != Int[{size}]'
+        if len(data) != cls.size:
+            raise CodecError(f'datalen={len(data)} != {cls.__name__}[{cls.bitsize}]')
         value = int.from_bytes(data, 'big')
         return cls.wrap(value)
 
@@ -115,7 +122,8 @@ class IpAddr(Codec):
 
     def __class_getitem__(cls, iptype: str) -> Type[Codec]:
         """generate ipv4 or ipv6 ipaddress supporting codec type"""
-        assert iptype in ('ipv4', 'ipv6'), 'invalid ipaddress type'
+        if iptype not in ('ipv4', 'ipv6'):
+            raise CodecError(f'invalid ipaddress type: {iptype!r}')
         size = 4 if iptype == 'ipv4' else 16
         addr = IPv4Address if iptype == 'ipv4' else IPv6Address
         return codec(f'IPv{iptype[-1]}', cls, size=size, ip_type=addr)
@@ -201,7 +209,8 @@ class StaticBytes(Codec):
 
     @classmethod
     def encode(cls, ctx: Context, content: bytes) -> bytes:
-        assert len(content) <= cls.size, f'len(content) >= {cls.size} bytes'
+        if len(content) > cls.size:
+            raise CodecError(f'datalen={len(content)} >= {cls.size} bytes')
         ctx.index += cls.size
         content = content.ljust(cls.size, b'\x00')
         return content

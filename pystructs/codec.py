@@ -7,9 +7,13 @@ from typing import Dict, Protocol, Any, ClassVar
 from typing_extensions import runtime_checkable
 
 #** Variables **#
-__all__ = ['Context', 'Codec']
+__all__ = ['CodecError', 'Context', 'Codec']
 
 #** Classes **#
+
+class CodecError(Exception):
+    """Codec Encoding/Decoding Exception"""
+    pass
 
 @dataclass
 class Context:
@@ -51,11 +55,11 @@ class Codec(Protocol):
     init:      ClassVar[bool] = True
     default:   ClassVar[Any]  = None
     base_type: type
-    
+ 
     @classmethod
     def sizeof(cls) -> int:
         name = cls.__name__
-        raise RuntimeError(f'Cannot get sizeof {name!r}')
+        raise CodecError(f'Cannot get sizeof {name!r}')
 
     @classmethod
     @abstractmethod

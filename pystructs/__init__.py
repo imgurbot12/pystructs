@@ -9,6 +9,7 @@ from .codec import *
 __all__ = [
     'Codec',
     'Context',
+    'CodecError',
     'Const',
     'Int',
     'Int8',

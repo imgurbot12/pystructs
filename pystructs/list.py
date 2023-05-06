@@ -4,7 +4,7 @@ List Codec Implementations
 from typing import Type, List, Any
 
 from .base import Int, codec
-from .codec import Context, Codec
+from .codec import Context, Codec, CodecError
 
 #** Variables **#
 __all__ = ['SizedList', 'StaticList', 'GreedyList']
@@ -55,7 +55,8 @@ class StaticList(Codec):
  
     @classmethod
     def encode(cls, ctx: Context, value: List[Any]) -> bytes:
-        assert len(value) == cls.size, f'len(array)[{len(value)}] != f{cls.size}'
+        if len(value) != cls.size:
+            raise CodecError(f'arraylen={len(value)} != {cls.size}')
         data = bytearray()
         for item in value:
             data += cls.content.encode(ctx, item)
