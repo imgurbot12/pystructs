@@ -118,7 +118,7 @@ class IpAddr(Codec):
     """
     size:      int
     ip_type:   Union[Type[IPv4Address], Type[IPv6Address]]
-    base_type: Union[type, tuple] = (str, bytes, IPv4Address)
+    base_type: Union[type, tuple] = (str, bytes, IPv4Address, IPv6Address)
 
     def __class_getitem__(cls, iptype: str) -> Type[Codec]:
         """generate ipv4 or ipv6 ipaddress supporting codec type"""
@@ -126,7 +126,8 @@ class IpAddr(Codec):
             raise CodecError(f'invalid ipaddress type: {iptype!r}')
         size = 4 if iptype == 'ipv4' else 16
         addr = IPv4Address if iptype == 'ipv4' else IPv6Address
-        return codec(f'IPv{iptype[-1]}', cls, size=size, ip_type=addr)
+        return codec(f'IPv{iptype[-1]}', cls, size=size, 
+            ip_type=addr, base_type=(str, bytes, addr))
 
     @classmethod
     def sizeof(cls) -> int:
