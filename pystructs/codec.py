@@ -2,12 +2,22 @@
 Base Codec Definitions
 """
 from abc import abstractmethod
-from dataclasses import dataclass, field
-from typing import Dict, Protocol, Any, ClassVar
+from typing import Dict, TypeVar, Protocol, ClassVar
 from typing_extensions import runtime_checkable
 
+from pyderive import dataclass, field
+
 #** Variables **#
-__all__ = ['CodecError', 'Context', 'Codec']
+__all__ = ['T', 'cname', 'CodecError', 'Context', 'Codec']
+
+#: generic typevar
+T = TypeVar('T')
+
+#** Functions **#
+
+def cname(cls) -> str:
+    cls = cls if isinstance(cls, type) else type(cls)
+    return cls.__name__
 
 #** Classes **#
 
@@ -15,7 +25,7 @@ class CodecError(Exception):
     """Codec Encoding/Decoding Exception"""
     pass
 
-@dataclass
+@dataclass(slots=True)
 class Context:
     """Encoding/Decoding Context Tracking"""
     index: int = 0
@@ -50,23 +60,16 @@ class Context:
         self.domain_to_index[domain] = index
 
 @runtime_checkable
-class Codec(Protocol):
+class Codec(Protocol[T]):
     """Encoding/Decoding Codec Protocol"""
-    init:      ClassVar[bool] = True
-    default:   ClassVar[Any]  = None
-    base_type: type
- 
-    @classmethod
-    def sizeof(cls) -> int:
-        name = cls.__name__
-        raise CodecError(f'Cannot get sizeof {name!r}')
+    base_type: ClassVar[tuple]
 
     @classmethod
     @abstractmethod
-    def encode(cls, ctx: Context, value: Any) -> bytes:
+    def encode(cls, ctx: Context, value: T) -> bytes:
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
-    def decode(cls, ctx: Context, raw: bytes) -> Any:
+    def decode(cls, ctx: Context, raw: bytes) -> T:
         raise NotImplementedError

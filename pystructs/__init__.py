@@ -1,50 +1,55 @@
 """
 Python Struct Utilities Library
 """
-from .list import *
-from .base import *
-from .codec import *
 
 #** Variables **#
 __all__ = [
-    'Codec',
-    'Context',
-    'CodecError',
-    'Const',
-    'Int',
-    'Int8',
-    'Int16',
-    'Int32',
-    'Int48',
-    'Int64',
-    'IpAddr',
-    'Ipv4',
-    'Ipv6',
-    'MacAddr',
-    'SizedBytes',
-    'StaticBytes',
-    'GreedyBytes',
-    'Domain',
-    'SizedList',
-    'StaticList',
-    'GreedyList',
-
     'field',
-    'fields',
-    'struct',
-    'make_struct',
+    'compile',
+    'Field',
     'Struct',
-    'Property',
+
+    'Context',
+    'Codec',
+    'CodecError',
+
+    'Integer',
+    'Signed',
+    'Unsigned',
+    'I8',
+    'I16',
+    'I24',
+    'I32',
+    'I48',
+    'I64',
+    'I128',
+    'U8',
+    'U16',
+    'U24',
+    'U48',
+    'U64',
+    'U128',
+    
+    'SizedBytes', 
+    'StaticBytes', 
+    'GreedyBytes',
+    
+    'SizedList', 
+    'StaticList', 
+    'GreedyList',
+    
+    'IpType',
+    'IpAddress',
+    'IPv4',
+    'IPv6',
+    'MacAddr',
+    'Domain',
 ]
-
-Int8  = Int[8]
-Int16 = Int[16]
-Int32 = Int[32]
-Int48 = Int[48]
-Int64 = Int[64]
-
-Ipv4 = IpAddr['ipv4']
-Ipv6 = IpAddr['ipv6']
 
 #** Imports **#
 from .struct import *
+from .codec import *
+from .integer import *
+from .bytestr import *
+from .lists import *
+from .net import *
