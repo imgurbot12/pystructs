@@ -1,7 +1,8 @@
 """
 List Codec Implementations
 """
-from typing import Protocol, ClassVar, Type, Tuple
+from typing import Protocol, ClassVar, Type
+from typing_extensions import Annotated, Self
 
 from .codec import *
 from .integer import Integer
@@ -18,9 +19,12 @@ class SizedList(Codec[list], Protocol):
     hint:      ClassVar[Integer]
     content:   ClassVar[Codec]
     base_type: ClassVar[tuple] = (list, )
- 
-    def __class_getitem__(cls, settings: Tuple[Integer, Type[Codec]]):
-        hint, content = settings
+
+    def __class_getitem__(cls, s: tuple):
+        hint, content = s
+        hint, content = deanno(hint), deanno(content)
+        if not isinstance(hint, type) and issubclass(hint, Integer):
+            raise ValueError(f'{cname(cls)} invalid hint: {hint!r}')
         name = f'{cname(cls)}[{hint!r},{content!r}]'
         return type(name, (cls, ), {'hint': hint, 'content': content})
  
@@ -49,9 +53,10 @@ class StaticList(Codec[list], Protocol):
     content:   ClassVar[Type[Codec]]
     base_type: ClassVar[tuple] = (list, )
 
-    def __class_getitem__(cls, settings: Tuple[int, Type[Codec]]):
-        size, content = settings
-        name = f'{cname(cls)}[{size!r},{content!r}]'
+    def __class_getitem__(cls, s: tuple):
+        size, content = s
+        content = deanno(content)
+        name    = f'{cname(cls)}[{size!r},{content!r}]'
         return type(name, (cls,), {'size': size, 'content': content})
  
     @classmethod
@@ -71,7 +76,7 @@ class StaticList(Codec[list], Protocol):
             content.append(item)
         return content
 
-class GreedyList(Codec[list]):
+class _GreedyList(Codec[list]):
     """
     Greedy List that Consumes All Remaining Bytes
     """
@@ -79,7 +84,8 @@ class GreedyList(Codec[list]):
     base_type: ClassVar[tuple] = (list, )
 
     def __class_getitem__(cls, content: Type[Codec]) -> Type[Codec]:
-        name = f'{cname(cls)}[{content!r}]'
+        name    = f'{cname(cls)}[{content!r}]'
+        content = deanno(content)
         return type(name, (cls,), {'content': content})
 
     @classmethod
@@ -96,3 +102,5 @@ class GreedyList(Codec[list]):
             item = cls.content.decode(ctx, raw)
             content.append(item)
         return content
+
+GreedyList = Annotated[list, _GreedyList]

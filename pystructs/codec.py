@@ -2,13 +2,21 @@
 Base Codec Definitions
 """
 from abc import abstractmethod
-from typing import Dict, TypeVar, Protocol, ClassVar
-from typing_extensions import runtime_checkable
+from typing import Dict, TypeVar, Protocol, ClassVar, Type, get_origin, get_args
+from typing_extensions import Annotated, runtime_checkable
 
 from pyderive import dataclass, field
 
 #** Variables **#
-__all__ = ['T', 'cname', 'CodecError', 'Context', 'Codec']
+__all__ = [
+    'T', 
+    'cname',
+    'deanno',
+
+    'CodecError', 
+    'Context', 
+    'Codec'
+]
 
 #: generic typevar
 T = TypeVar('T')
@@ -17,7 +25,13 @@ T = TypeVar('T')
 
 def cname(cls) -> str:
     cls = cls if isinstance(cls, type) else type(cls)
-    return cls.__name__
+    return cls.__name__.lstrip('_')
+
+def deanno(t: Type) -> Type:
+    """remove annotation if present"""
+    if get_origin(t) is Annotated:
+        return get_args(t)[1]
+    return t
 
 #** Classes **#
 

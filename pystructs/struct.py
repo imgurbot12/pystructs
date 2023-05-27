@@ -1,8 +1,8 @@
 """
 DataClass-Like Struct Implementation
 """
-from typing import Any
-from typing_extensions import Self, dataclass_transform
+from typing import Any, Type, Optional, get_origin, get_args
+from typing_extensions import Self, Annotated, dataclass_transform
 
 from pyderive import MISSING, BaseField, dataclass, fields, is_dataclass
 
@@ -17,20 +17,22 @@ def field(*_, **kwargs) -> Any:
     """apply custom field to struct definition"""
     return Field(**kwargs)
 
-def compile(*_, **kwargs):
+def compile(cls=None, *_, **kwargs):
     """compile struct w/ the following dataclass options""" 
     @dataclass_transform(field_specifiers=(Field, field))
     def wrapper(cls):
         return dataclass(cls, field=Field, **kwargs)
-    return wrapper
+    return wrapper(cls) if cls else wrapper
 
 #** Classes **#
 
 @dataclass(slots=True)
 class Field(BaseField):
-    anno: Codec = Codec
+    codec: Optional[Type[Codec]] = None
 
     def finalize(self):
+        """compile codec/annotation"""
+        self.anno = deanno(self.codec or self.anno)
         if not isinstance(self.anno, type) or not isinstance(self.anno, Codec):
             raise CodecError(f'field {self.name} invalid anno: {self.anno!r}')
 

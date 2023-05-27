@@ -3,7 +3,7 @@ Network Related Codec Implementations
 """
 import re
 from ipaddress import IPv4Address, IPv6Address
-from typing import Union, Type, Protocol, ClassVar
+from typing import *
 
 from .codec import *
 
@@ -17,6 +17,9 @@ __all__ = [
     'Domain',
 ]
 
+#: generic typevar for ipv4/ipv6
+IP = TypeVar('IP', IPv4Address, IPv6Address)
+
 #: typehint for valid iptypes
 IpType = Union[str, bytes, IPv4Address, IPv6Address]
 
@@ -25,7 +28,7 @@ IpTypeHint = Union[Type[IPv4Address], Type[IPv6Address]]
 
 #** Classes **#
 
-class IpAddress(Codec[T], Protocol):
+class IpAddress(Codec[IP], Protocol):
     """
     Ipv4/Ipv6 Address Variable Codec Definition
     """
@@ -36,16 +39,16 @@ class IpAddress(Codec[T], Protocol):
     @classmethod
     def encode(cls, ctx: Context, value: IpType) -> bytes:
         ipaddr = value if isinstance(value, cls.ip_type) else cls.ip_type(value)
-        packed = ipaddr.packed
+        packed = ipaddr.packed #type: ignore
         ctx.index += cls.size
         return packed
 
     @classmethod
-    def decode(cls, ctx: Context, raw: bytes) -> Union[IPv4Address, IPv6Address]:
+    def decode(cls, ctx: Context, raw: bytes) -> IP:
         data = ctx.slice(raw, cls.size)
-        return cls.ip_type(data)
+        return cls.ip_type(data) #type: ignore
 
-class IPv4(IpAddress[IPv4Address]):
+class _IPv4(IpAddress[IPv4Address]):
     """
     IPv4 Codec Serialization
     """
@@ -53,7 +56,7 @@ class IPv4(IpAddress[IPv4Address]):
     ip_type   = IPv4Address
     base_type = (str, bytes, IPv4Address)
 
-class IPv6(IpAddress[IPv6Address]):
+class _IPv6(IpAddress[IPv6Address]):
     """
     IPv6 Codec Serialization
     """
@@ -61,29 +64,32 @@ class IPv6(IpAddress[IPv6Address]):
     ip_type   = IPv6Address
     base_type = (str, bytes, IPv6Address) 
 
-class MacAddr(Codec[str]):
+class _MacAddr(Codec[str]):
     """
     Serialized MacAddress Codec
     """
-    base_type: tuple      = (str, )
-    replace:   re.Pattern = re.compile('[:.-]')
+    replace:   re.Pattern      = re.compile('[:.-]')
+    base_type: ClassVar[tuple] = (str, bytes)
 
     @classmethod
-    def encode(cls, ctx: Context, value: str) -> bytes:
-        content = bytes.fromhex(cls.replace.sub('', value))
-        ctx.index += len(content)
-        return content
+    def encode(cls, ctx: Context, value: Union[str, bytes]) -> bytes:
+        if isinstance(value, bytes) and len(value) != 6:
+            raise CodecError(f'invalid mac-address: {value!r}')
+        if isinstance(value, str):
+            value = bytes.fromhex(cls.replace.sub('', value))
+        ctx.index += len(value)
+        return value
 
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> str:
         return ':'.join(f'{i:02x}' for i in ctx.slice(raw, 6))
 
-class Domain(Codec[bytes]):
+class _Domain(Codec[bytes]):
     """
     DNS Style Domain Serialization w/ Index Pointers to Eliminate Duplicates
     """
-    ptr_mask:  int   = 0xC0
-    base_type: tuple = (bytes, )
+    ptr_mask:  ClassVar[int]   = 0xC0
+    base_type: ClassVar[tuple] = (bytes, )
 
     @classmethod
     def encode(cls, ctx: Context, value: bytes) -> bytes:
@@ -110,7 +116,7 @@ class Domain(Codec[bytes]):
 
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
-        domain = []
+        domain: List[Tuple[bytes, Optional[int]]] = []
         while True:
             # check for length of domain component
             length     = raw[ctx.index]
@@ -136,3 +142,8 @@ class Domain(Codec[bytes]):
             subname = b'.'.join(name for name, _ in domain[n:])
             ctx.save_domain(subname, index)
         return b'.'.join(name for name, _ in domain)
+
+IPv4    = Annotated[Union[str, bytes, IPv4Address], _IPv4]
+IPv6    = Annotated[Union[str, bytes, IPv6Address], _IPv6]
+MacAddr = Annotated[Union[str, bytes], _MacAddr]
+Domain  = Annotated[bytes, _Domain]

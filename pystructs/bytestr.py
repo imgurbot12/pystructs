@@ -2,6 +2,7 @@
 ByteRange Serialization Implementations
 """
 from typing import Protocol, ClassVar, Type
+from typing_extensions import Annotated, Self
 
 from .codec import *
 from .integer import Integer
@@ -11,7 +12,7 @@ __all__ = ['SizedBytes', 'StaticBytes', 'GreedyBytes']
 
 #** Classes **#
 
-class SizedBytes(Codec[bytes], Protocol):
+class SizedBytes(Annotated[bytes, ...]):
     """
     Variable Sized Bytes Codec with Length Denoted by Prefixed Integer
 
@@ -21,8 +22,11 @@ class SizedBytes(Codec[bytes], Protocol):
     type:      ClassVar[Type]  = bytes 
     base_type: ClassVar[tuple] = (bytes, )
 
-    def __class_getitem__(cls, hint: Integer):
-        name   = f'{cname(cls)}[{cname(hint)}]'
+    def __class_getitem__(cls, hint: Type):
+        hint = deanno(hint)
+        if not isinstance(hint, type) and issubclass(hint, Integer):
+            raise ValueError(f'{cname(cls)} invalid hint: {hint!r}')
+        name = f'{cname(cls)}[{cname(hint)}]'
         return type(name, (cls, ), {'hint': hint})
 
     @classmethod
@@ -47,7 +51,7 @@ class StaticBytes(Codec[bytes]):
     base_type: ClassVar[tuple] = (bytes, )
 
     def __class_getitem__(cls, size: int):
-        name   = f'{cname(cls)}[{size}]'
+        name = f'{cname(cls)}[{size}]'
         return type(name, (cls, ), {'size': size})
 
     @classmethod
@@ -62,7 +66,7 @@ class StaticBytes(Codec[bytes]):
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
         return ctx.slice(raw, cls.size).rstrip(b'\x00')
 
-class GreedyBytes(Codec[bytes]):
+class _GreedyBytes(Codec[bytes]):
     """
     Variable Bytes that Greedily Collects all Bytes left in Data
     """
@@ -79,3 +83,4 @@ class GreedyBytes(Codec[bytes]):
         ctx.index += len(data)
         return data
 
+GreedyBytes = Annotated[bytes, _GreedyBytes]

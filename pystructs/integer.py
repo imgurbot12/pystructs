@@ -1,17 +1,15 @@
 """
 Integer Codec Implementations
 """
-from abc import abstractmethod
 from enum import Enum
-from typing import Protocol, Union, ClassVar
-from typing_extensions import runtime_checkable
+from typing import Protocol, SupportsInt, Union, ClassVar
+from typing_extensions import Annotated, runtime_checkable
 
 from .codec import *
 
 #** Variables **#
 __all__ = [
     'IntFmt',
-    'IntLike',
     'Integer',
     'Signed',
     'Unsigned',
@@ -26,6 +24,7 @@ __all__ = [
     'U8',
     'U16',
     'U24',
+    'U32',
     'U48',
     'U64',
     'U128',
@@ -38,25 +37,19 @@ class IntFmt(Enum):
     LITTLE_ENDIAN = 'little'
 
 @runtime_checkable
-class IntLike(Protocol):
-
-    @abstractmethod
-    def __int__(self) -> int:
-        raise NotImplementedError
-
-class Integer(Codec[IntLike], Protocol):
+class Integer(Codec[SupportsInt], Protocol):
     max:       ClassVar[int]
     min:       ClassVar[int]
     size:      ClassVar[int]
     fmt:       ClassVar[IntFmt] = IntFmt.BIG_ENDIAN
     sign:      ClassVar[bool]   = False
-    base_type: ClassVar[tuple]  = (IntLike, )
+    base_type: ClassVar[tuple]  = (SupportsInt, )
 
     def __class_getitem__(cls, fmt: Union[str, IntFmt]):
         return type(cls.__name__, (cls, ), {'fmt': fmt})
 
     @classmethod
-    def encode(cls, ctx: Context, value: IntLike):
+    def encode(cls, ctx: Context, value: SupportsInt):
         """encode integer using settings encoded into the type"""
         value = int(value)
         if value < cls.min:
@@ -76,77 +69,93 @@ class Integer(Codec[IntLike], Protocol):
         return value
 
 class Signed(Integer, Protocol):
-    sign = True
+    sign: ClassVar[bool] = True
 
-class I8(Signed):
+class _I8(Signed):
     min  = - int(2**8 / 2)
     max  = int(2**8 / 2) - 1 
     size = 1
 
-class I16(Signed):
+class _I16(Signed):
     min  = - int(2**16 / 2)
     max  = int(2**16 / 2) - 1
     size = 2
 
-class I24(Signed):
+class _I24(Signed):
     min  = - int(2**24 / 2)
     max  = int(2**24 / 2) - 1
     size = 3
 
-class I32(Signed):
+class _I32(Signed):
     min  = - int(2**32 / 2)
     max  = int(2**32 / 2) - 1
     size = 4
 
-class I48(Signed):
+class _I48(Signed):
     min  = - int(2**48 / 2)
     max  = int(2**48 / 2) - 1
     size = 6
 
-class I64(Signed):
+class _I64(Signed):
     min  = - int(2**64 / 2)
     max  = int(2**64 / 2) - 1
     size = 8
 
-class I128(Signed):
+class _I128(Signed):
     min  = - int(2**128 / 2)
     max  = int(2**128 / 2) - 1
     size = 16
 
 class Unsigned(Integer, Protocol):
-    sign = False
+    sign: ClassVar[bool] = False
 
-class U8(Unsigned):
+class _U8(Unsigned):
     min  = 0
     max  = 2**8
     size = 1
 
-class U16(Unsigned):
+class _U16(Unsigned):
     min  = 0
     max  = 2**16
     size = 2
 
-class U24(Unsigned):
+class _U24(Unsigned):
     min  = 0
     max  = 2**24
     size = 3
 
-class U32(Unsigned):
+class _U32(Unsigned):
     min  = 0
     max  = 2**32
     size = 4
 
-class U48(Unsigned):
+class _U48(Unsigned):
     min  = 0
     max  = 2**48
     size = 6
 
-class U64(Unsigned):
+class _U64(Unsigned):
     min  = 0
     max  = 2**64
     size = 8
 
-class U128(Unsigned):
+class _U128(Unsigned):
     min  = 0
     max  = 2**128
     size = 16
+
+I8   = Annotated[int, _I8]
+I16  = Annotated[int, _I16]
+I24  = Annotated[int, _I24]
+I32  = Annotated[int, _I32]
+I48  = Annotated[int, _I48]
+I64  = Annotated[int, _I64]
+I128 = Annotated[int, _I128]
+
+U8   = Annotated[int, _U8]
+U16  = Annotated[int, _U16]
+U24  = Annotated[int, _U24]
+U32  = Annotated[int, _U32]
+U48  = Annotated[int, _U48]
+U64  = Annotated[int, _U64]
+U128 = Annotated[int, _U128]
