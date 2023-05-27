@@ -26,6 +26,7 @@ __all__ = [
     'U8',
     'U16',
     'U24',
+    'U32',
     'U48',
     'U64',
     'U128',
@@ -44,6 +45,9 @@ __all__ = [
     'IPv6',
     'MacAddr',
     'Domain',
+
+    'Const',
+    'Wrap',
 ]
 
 #** Imports **#
@@ -53,3 +57,4 @@ from .integer import *
 from .bytestr import *
 from .lists import *
 from .net import *
+from .helpers import *
