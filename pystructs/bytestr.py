@@ -2,7 +2,7 @@
 ByteRange Serialization Implementations
 """
 from typing import Protocol, ClassVar, Type
-from typing_extensions import Annotated, Self
+from typing_extensions import Annotated
 
 from .codec import *
 from .integer import Integer
@@ -12,7 +12,7 @@ __all__ = ['SizedBytes', 'StaticBytes', 'GreedyBytes']
 
 #** Classes **#
 
-class SizedBytes(Annotated[bytes, ...]):
+class SizedBytes(Codec[bytes], Protocol):
     """
     Variable Sized Bytes Codec with Length Denoted by Prefixed Integer
 

@@ -2,7 +2,7 @@
 List Codec Implementations
 """
 from typing import Protocol, ClassVar, Type
-from typing_extensions import Annotated, Self
+from typing_extensions import Annotated
 
 from .codec import *
 from .integer import Integer

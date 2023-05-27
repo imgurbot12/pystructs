@@ -1,8 +1,8 @@
 """
 DataClass-Like Struct Implementation
 """
-from typing import Any, Type, Optional, get_origin, get_args
-from typing_extensions import Self, Annotated, dataclass_transform
+from typing import Any, Type, Optional
+from typing_extensions import Self, dataclass_transform
 
 from pyderive import MISSING, BaseField, dataclass, fields, is_dataclass
 
