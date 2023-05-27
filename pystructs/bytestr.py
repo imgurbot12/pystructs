@@ -2,7 +2,7 @@
 ByteRange Serialization Implementations
 """
 from typing import Protocol, ClassVar, Type
-from typing_extensions import Annotated
+from typing_extensions import Annotated, runtime_checkable
 
 from .codec import *
 from .integer import Integer
@@ -12,6 +12,7 @@ __all__ = ['SizedBytes', 'StaticBytes', 'GreedyBytes']
 
 #** Classes **#
 
+@runtime_checkable
 class SizedBytes(Codec[bytes], Protocol):
     """
     Variable Sized Bytes Codec with Length Denoted by Prefixed Integer
@@ -24,7 +25,7 @@ class SizedBytes(Codec[bytes], Protocol):
 
     def __class_getitem__(cls, hint: Type):
         hint = deanno(hint)
-        if not isinstance(hint, type) and issubclass(hint, Integer):
+        if not isinstance(hint, type) or not isinstance(hint, Integer):
             raise ValueError(f'{cname(cls)} invalid hint: {hint!r}')
         name = f'{cname(cls)}[{cname(hint)}]'
         return type(name, (cls, ), {'hint': hint})
@@ -40,13 +41,14 @@ class SizedBytes(Codec[bytes], Protocol):
         hint = cls.hint.decode(ctx, raw)
         return ctx.slice(raw, hint)
 
-class StaticBytes(Codec[bytes]):
+@runtime_checkable
+class StaticBytes(Codec[bytes], Protocol):
     """
     Variable Staticly Sized Bytes Codec of a Pre-Determined Length
 
     Example: StaticBytes[32]
     """
-    size:      int
+    size:      ClassVar[int]
     type:      ClassVar[Type]  = bytes 
     base_type: ClassVar[tuple] = (bytes, )
 

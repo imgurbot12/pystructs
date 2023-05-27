@@ -2,7 +2,7 @@
 List Codec Implementations
 """
 from typing import Protocol, ClassVar, Type
-from typing_extensions import Annotated
+from typing_extensions import Annotated, runtime_checkable
 
 from .codec import *
 from .integer import Integer
@@ -12,6 +12,7 @@ __all__ = ['SizedList', 'StaticList', 'GreedyList']
 
 #** Classes **#
 
+@runtime_checkable
 class SizedList(Codec[list], Protocol):
     """
     Variable Sized List controlled by a Size-Hint Prefix
@@ -23,7 +24,7 @@ class SizedList(Codec[list], Protocol):
     def __class_getitem__(cls, s: tuple):
         hint, content = s
         hint, content = deanno(hint), deanno(content)
-        if not isinstance(hint, type) and issubclass(hint, Integer):
+        if not isinstance(hint, type) or not isinstance(hint, Integer):
             raise ValueError(f'{cname(cls)} invalid hint: {hint!r}')
         name = f'{cname(cls)}[{hint!r},{content!r}]'
         return type(name, (cls, ), {'hint': hint, 'content': content})
@@ -45,6 +46,7 @@ class SizedList(Codec[list], Protocol):
             content.append(item)
         return content
 
+@runtime_checkable
 class StaticList(Codec[list], Protocol):
     """
     Static List of the specified-type

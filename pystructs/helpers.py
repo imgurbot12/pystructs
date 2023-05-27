@@ -55,7 +55,7 @@ class Wrap(Codec[T], Protocol):
     def __class_getitem__(cls, settings: Tuple[Type, Type]):
         codec, wrap = settings
         codec       = deanno(codec)
-        if not isinstance(codec, type) and issubclass(codec, Codec):
+        if not isinstance(codec, type) or not isinstance(codec, Codec):
             raise ValueError(f'{cname(cls)} invalid codec: {codec!r}')
         name        = f'{cname(codec)}[{cname(wrap)}]'
         base_types  = [wrap] #type: List[type]
