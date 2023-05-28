@@ -36,8 +36,10 @@ class Struct:
         raise NotImplementedError
 
     def __init_subclass__(cls, **kwargs):
-        slots = kwargs.pop('slots', not hasattr(cls, '__slots__'))
-        cls = dataclass(cls, field=Field, slots=slots, **kwargs)
+        slots  = kwargs.pop('slots', not hasattr(cls, '__slots__'))
+        newcls = dataclass(cls, field=Field, slots=slots, **kwargs)
+        if slots:
+            setattr(cls, '__slots__', newcls.__slots__)
 
     def encode(self, ctx: Context) -> bytes:
         """encode the compiled sequence fields into bytes"""
