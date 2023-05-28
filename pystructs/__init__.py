@@ -5,7 +5,6 @@ Python Struct Utilities Library
 #** Variables **#
 __all__ = [
     'field',
-    'compile',
     'Field',
     'Struct',
 

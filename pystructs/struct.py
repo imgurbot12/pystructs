@@ -4,25 +4,18 @@ DataClass-Like Struct Implementation
 from typing import Any, Type, Optional
 from typing_extensions import Self, dataclass_transform
 
-from pyderive import MISSING, BaseField, dataclass, fields, is_dataclass
+from pyderive import MISSING, BaseField, dataclass, fields
 
 from .codec import *
 
 #** Variables **#
-__all__ = ['field', 'compile', 'Field', 'Struct']
+__all__ = ['field', 'Field', 'Struct']
 
 #** Functions **#
 
 def field(*_, **kwargs) -> Any:
     """apply custom field to struct definition"""
     return Field(**kwargs)
-
-def compile(cls=None, *_, **kwargs):
-    """compile struct w/ the following dataclass options""" 
-    @dataclass_transform(field_specifiers=(Field, field))
-    def wrapper(cls):
-        return dataclass(cls, field=Field, **kwargs)
-    return wrapper(cls) if cls else wrapper
 
 #** Classes **#
 
@@ -38,11 +31,12 @@ class Field(BaseField):
 
 @dataclass_transform(field_specifiers=(Field, field))
 class Struct:
+ 
+    def __init__(self):
+        raise NotImplementedError
 
-    def __new__(cls, *_, **__):
-        if not is_dataclass(cls):
-            cls = dataclass(cls, field=Field)
-        return super().__new__(cls)
+    def __init_subclass__(cls, **kwargs):
+        cls = dataclass(cls, field=Field, **kwargs)
 
     def encode(self, ctx: Context) -> bytes:
         """encode the compiled sequence fields into bytes"""
