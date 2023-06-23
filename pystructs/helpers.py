@@ -58,8 +58,9 @@ class Wrap(Codec, Protocol, Generic[T2, T]):
     def __class_getitem__(cls, settings: Tuple[T2, T]):
         codec, wrap = settings
         codec       = deanno(codec, Codec)
+        wrap        = deanno(wrap, codec.base_type)
         name        = f'{cname(codec)}[{cname(wrap)}]'
-        base_types  = [wrap] #type: List[type]
+        base_types  = list(codec.base_type)
         if isinstance(wrap, type) and issubclass(wrap, Enum):
             base_types.extend(enum_types(wrap))
         kwargs = {'wrap': wrap, 'codec': codec, 'base_type': tuple(base_types)}
@@ -67,8 +68,8 @@ class Wrap(Codec, Protocol, Generic[T2, T]):
  
     @classmethod
     def encode(cls, ctx: Context, value: T):
-        value = cls.wrap(value)
-        return cls.codec.encode(ctx, value.value)
+        wrapped = cls.wrap(value)
+        return cls.codec.encode(ctx, wrapped)
 
     @classmethod
     def decode(cls, ctx: Context, raw: bytes) -> T:

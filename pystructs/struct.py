@@ -60,7 +60,10 @@ class Struct(Codec):
                 raise ValueError(f'{cname(self)} missing attr {f.name!r}')
             if not isinstance(value, f.anno.base_type):
                 raise ValueError(f'{cname(self)}.{f.name} invalid value: {value!r}')
-            encoded += f.anno.encode(ctx, value)
+            try:
+                encoded += f.anno.encode(ctx, value)
+            except (CodecError, ValueError, TypeError) as e:
+                raise ValueError(f'{cname(self)}.{f.name}: {e}') from None
         return bytes(encoded)
 
     @classmethod
