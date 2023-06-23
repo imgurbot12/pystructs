@@ -2,12 +2,15 @@
 Misc Helper Codec Implementations
 """
 from enum import Enum
-from typing import ClassVar, Protocol, Tuple, Type, Any, List
+from typing import *
 
 from .codec import *
 
 #** Variables **#
 __all__ = ['Const', 'Wrap']
+
+#: generic typevar bound to random type
+T2 = TypeVar('T2', bound=Type, contravariant=True)
 
 #** Functions **#
 
@@ -44,7 +47,7 @@ class Const(Codec[bytes], Protocol):
             raise CodecError(f'{cname(cls)} invalid const: {value!r}')
         return value
 
-class Wrap(Codec[T], Protocol):
+class Wrap(Codec, Protocol, Generic[T2, T]):
     """
     Content Wrapper/Unwrapper for Types like Enums
     """
@@ -52,11 +55,9 @@ class Wrap(Codec[T], Protocol):
     codec:     ClassVar[Codec]
     base_type: ClassVar[tuple]
 
-    def __class_getitem__(cls, settings: Tuple[Type, Type]):
+    def __class_getitem__(cls, settings: Tuple[T2, T]):
         codec, wrap = settings
-        codec       = deanno(codec)
-        if not isinstance(codec, type) or not isinstance(codec, Codec):
-            raise ValueError(f'{cname(cls)} invalid codec: {codec!r}')
+        codec       = deanno(codec, Codec)
         name        = f'{cname(codec)}[{cname(wrap)}]'
         base_types  = [wrap] #type: List[type]
         if isinstance(wrap, type) and issubclass(wrap, Enum):
@@ -65,7 +66,7 @@ class Wrap(Codec[T], Protocol):
         return type(name, (cls,), kwargs)
  
     @classmethod
-    def encode(cls, ctx: Context, value: Any):
+    def encode(cls, ctx: Context, value: T):
         value = cls.wrap(value)
         return cls.codec.encode(ctx, value.value)
 

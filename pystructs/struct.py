@@ -1,7 +1,7 @@
 """
 DataClass-Like Struct Implementation
 """
-from typing import Any, Type, Optional
+from typing import Any, Type, Optional, ClassVar
 from typing_extensions import Self, dataclass_transform
 
 from pyderive import MISSING, BaseField, dataclass, fields
@@ -11,11 +11,24 @@ from .codec import *
 #** Variables **#
 __all__ = ['field', 'Field', 'Struct']
 
+#: tracker of already compiled struct instances
+COMPILED = set()
+
 #** Functions **#
 
 def field(*_, **kwargs) -> Any:
     """apply custom field to struct definition"""
     return Field(**kwargs)
+
+def compile(cls, **kwargs):
+    """compile uncompiled structs"""
+    global COMPILED
+    name = f'{cls.__module__}.{cls.__name__}'
+    if name in COMPILED:
+        return
+    COMPILED.add(name)
+    newcls = dataclass(cls, field=Field, slots=True, **kwargs)
+    setattr(newcls, '__slots__', getattr(newcls, '__slots__'))
 
 #** Classes **#
 
@@ -25,21 +38,18 @@ class Field(BaseField):
 
     def finalize(self):
         """compile codec/annotation"""
-        self.anno = deanno(self.codec or self.anno)
-        if not isinstance(self.anno, type) or not isinstance(self.anno, Codec):
-            raise CodecError(f'field {self.name} invalid anno: {self.anno!r}')
+        self.anno = deanno(self.codec or self.anno, (Codec, Struct))
 
 @dataclass_transform(field_specifiers=(Field, field))
-class Struct:
+class Struct(Codec):
+    base_type: ClassVar[tuple] = ()
  
     def __init__(self):
         raise NotImplementedError
 
     def __init_subclass__(cls, **kwargs):
-        slots  = kwargs.pop('slots', not hasattr(cls, '__slots__'))
-        newcls = dataclass(cls, field=Field, slots=slots, **kwargs)
-        if slots:
-            setattr(cls, '__slots__', newcls.__slots__)
+        compile(cls, **kwargs) 
+        cls.base_type = (cls, )
 
     def encode(self, ctx: Context) -> bytes:
         """encode the compiled sequence fields into bytes"""

@@ -13,7 +13,7 @@ __all__ = ['SizedBytes', 'StaticBytes', 'GreedyBytes']
 #** Classes **#
 
 @runtime_checkable
-class SizedBytes(Codec[bytes], Protocol):
+class SizedBytes(Codec[T], Protocol):
     """
     Variable Sized Bytes Codec with Length Denoted by Prefixed Integer
 
@@ -23,10 +23,8 @@ class SizedBytes(Codec[bytes], Protocol):
     type:      ClassVar[Type]  = bytes 
     base_type: ClassVar[tuple] = (bytes, )
 
-    def __class_getitem__(cls, hint: Type):
-        hint = deanno(hint)
-        if not isinstance(hint, type) or not isinstance(hint, Integer):
-            raise ValueError(f'{cname(cls)} invalid hint: {hint!r}')
+    def __class_getitem__(cls, hint: T):
+        hint = deanno(hint, Integer)
         name = f'{cname(cls)}[{cname(hint)}]'
         return type(name, (cls, ), {'hint': hint})
 
@@ -53,6 +51,7 @@ class StaticBytes(Codec[bytes], Protocol):
     base_type: ClassVar[tuple] = (bytes, )
 
     def __class_getitem__(cls, size: int):
+        size = deanno(size, int)
         name = f'{cname(cls)}[{size}]'
         return type(name, (cls, ), {'size': size})
 

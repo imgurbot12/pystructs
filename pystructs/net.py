@@ -4,12 +4,15 @@ Network Related Codec Implementations
 import re
 from ipaddress import IPv4Address, IPv6Address
 from typing import *
+from typing_extensions import Annotated
 
 from .codec import *
 
 #** Variables **#
 __all__ = [
     'IpType',
+    'Ipv4Type',
+    'Ipv6Type',
     'IpAddress',
     'IPv4',
     'IPv6',
@@ -22,6 +25,12 @@ IP = TypeVar('IP', IPv4Address, IPv6Address)
 
 #: typehint for valid iptypes
 IpType = Union[str, bytes, IPv4Address, IPv6Address]
+
+#: typehint for valid ipv4 types
+Ipv4Type = Union[str, bytes, IPv4Address]
+
+#: typehitn for valid ipv6 types
+Ipv6Type = Union[str, bytes, IPv6Address]
 
 #: typehint for both ipaddr types
 IpTypeHint = Union[Type[IPv4Address], Type[IPv6Address]]
@@ -143,7 +152,7 @@ class _Domain(Codec[bytes]):
             ctx.save_domain(subname, index)
         return b'.'.join(name for name, _ in domain)
 
-IPv4    = Annotated[Union[str, bytes, IPv4Address], _IPv4]
-IPv6    = Annotated[Union[str, bytes, IPv6Address], _IPv6]
+IPv4    = Annotated[Ipv4Type, _IPv4]
+IPv6    = Annotated[Ipv6Type, _IPv6]
 MacAddr = Annotated[Union[str, bytes], _MacAddr]
 Domain  = Annotated[bytes, _Domain]

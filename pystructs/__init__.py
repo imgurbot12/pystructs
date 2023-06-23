@@ -1,9 +1,13 @@
 """
 Python Struct Utilities Library
 """
+from typing import Any
 
 #** Variables **#
 __all__ = [
+    'encode',
+    'decode',
+
     'field',
     'Field',
     'Struct',
@@ -39,6 +43,8 @@ __all__ = [
     'GreedyList',
     
     'IpType',
+    'Ipv4Type',
+    'Ipv6Type',
     'IpAddress',
     'IPv4',
     'IPv6',
@@ -48,6 +54,30 @@ __all__ = [
     'Const',
     'Wrap',
 ]
+
+#** Functions **#
+
+def encode(ctx: 'Context', value: Any, codec: Any) -> bytes:
+    """
+    Encode the following value into bytes
+
+    :param value: value to encode in bytes using codec
+    :param codec: codec used to encode value
+    :return:      encoded bytes
+    """
+    codec = deanno(codec, Codec)
+    return codec.encode(ctx, value)
+
+def decode(ctx: 'Context', raw: bytes, codec: Any) -> Any:
+    """
+    Decode the following bytes with the specified Codec
+
+    :param raw:   raw bytes to decode
+    :param codec: codec implementation used to decode value
+    :return:      decoded bytes
+    """
+    codec = deanno(codec, Codec)
+    return codec.decode(ctx, raw)
 
 #** Imports **#
 from .struct import *

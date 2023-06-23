@@ -2,13 +2,14 @@
 Integer Codec Implementations
 """
 from enum import Enum
-from typing import Protocol, SupportsInt, Union, ClassVar
+from typing import Protocol, SupportsInt, Union, ClassVar, TypeVar
 from typing_extensions import Annotated, runtime_checkable
 
 from .codec import *
 
 #** Variables **#
 __all__ = [
+    'I',
     'IntFmt',
     'Integer',
     'Signed',
@@ -29,6 +30,9 @@ __all__ = [
     'U64',
     'U128',
 ]
+
+#: typehint bound to integer types
+I = TypeVar('I', bound=Union[int, 'Integer'], contravariant=True)
 
 #** Classes **#
 
