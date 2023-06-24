@@ -71,7 +71,10 @@ class Struct(Codec):
         """decode the given raw-bytes into a compiled sequence"""
         kwargs = {}
         for f in fields(cls):
-            value = f.anno.decode(ctx, raw)
+            try:
+                value = f.anno.decode(ctx, raw)
+            except (CodecError, ValueError, TypeError) as e:
+                raise ValueError(f'{cname(cls)}.{f.name}: {e}') from None
             if f.init:
                 kwargs[f.name] = value
         return cls(**kwargs)
