@@ -20,15 +20,15 @@ def field(*_, **kwargs) -> Any:
     """apply custom field to struct definition"""
     return Field(**kwargs)
 
-def compile(cls, **kwargs):
+def compile(cls, slots: bool = True, **kwargs):
     """compile uncompiled structs"""
     global COMPILED
     name = f'{cls.__module__}.{cls.__name__}'
     if name in COMPILED:
         return
     COMPILED.add(name)
-    newcls = dataclass(cls, field=Field, slots=True, **kwargs)
-    setattr(newcls, '__slots__', getattr(newcls, '__slots__'))
+    newcls = dataclass(cls, field=Field, slots=slots, **kwargs)
+    setattr(cls, '__slots__', getattr(newcls, '__slots__'))
 
 #** Classes **#
 
