@@ -1,13 +1,89 @@
 """
 Base Codec Definitions
 """
+import functools
 from abc import abstractmethod
-from dataclasses import dataclass, field
-from typing import Dict, Protocol, Any, ClassVar
-from typing_extensions import runtime_checkable
+from typing import *
+from typing_extensions import Annotated, runtime_checkable, get_args, get_origin
+
+from pyderive import dataclass, field
 
 #** Variables **#
-__all__ = ['CodecError', 'Context', 'Codec']
+__all__ = [
+    'T',
+    'cname',
+    'deanno',
+    'protocol',
+    'protomethod',
+
+    'CodecError', 
+    'Context', 
+    'Codec'
+]
+
+#: generic typevar bound to type
+T = TypeVar('T', bound=Type)
+
+#: protocol tracker attribute
+PROTOCOL_ATTR = '__protocols__'
+
+#** Functions **#
+
+def cname(cls) -> str:
+    """retrieve classname from object or type"""
+    cls = cls if isinstance(cls, type) else type(cls)
+    return cls.__name__.lstrip('_')
+
+def deanno(t: T, validate: Union[Type[T], Tuple[Type[T], ...]]) -> T:
+    """remove annotation if present and validate type value"""
+    t = t if get_origin(t) is not Annotated else get_args(t)[1]
+    if isinstance(t, type) and not isinstance(t, validate):
+        raise ValueError(f'{t!r} must be subclass of {validate!r}')
+    return t
+
+def is_protocol(cls) -> bool:
+    """return true if class if codec protocol object"""
+    registry = getattr(cls, PROTOCOL_ATTR, None)
+    return registry is not None and cls in registry
+
+@overload
+def protocol(cls: T, checkable: bool = True) -> T:
+    ...
+
+@overload
+def protocol(cls: Optional[T] = None, checkable: bool = True) -> Callable[[T], T]:
+    ...
+
+def protocol(cls: Optional[T] = None, checkable: bool = True):
+    """
+    designate the following codec instance as a protocol
+
+    :param cls: codec object to designate as a protocol
+    :return:    registered and runtime-checkable protocol class
+    """
+    def wrap_protocol(cls):
+        if checkable:
+            cls = runtime_checkable(cls)
+        registry = getattr(cls, PROTOCOL_ATTR, None) or set()
+        registry.add(cls)
+        setattr(cls, PROTOCOL_ATTR, registry)
+        return cls
+    return wrap_protocol if cls is None else wrap_protocol(cls)
+
+def protomethod(func: Callable) -> Callable:
+    """
+    custom classmethod decorator that checks for protocol types
+
+    :param func: method to wrap as protocol classmethod
+    :return:     wrapped protocol method
+    """
+    @classmethod
+    @functools.wraps(func)
+    def wrapper(cls, *args, **kwargs):
+        if is_protocol(cls):
+            raise TypeError(f'Protocol {cname(cls)!r} cannot be called directly')
+        return func(cls, *args, **kwargs)
+    return wrapper
 
 #** Classes **#
 
@@ -15,7 +91,7 @@ class CodecError(Exception):
     """Codec Encoding/Decoding Exception"""
     pass
 
-@dataclass
+@dataclass(slots=True)
 class Context:
     """Encoding/Decoding Context Tracking"""
     index: int = 0
@@ -50,23 +126,16 @@ class Context:
         self.domain_to_index[domain] = index
 
 @runtime_checkable
-class Codec(Protocol):
+class Codec(Protocol[T]):
     """Encoding/Decoding Codec Protocol"""
-    init:      ClassVar[bool] = True
-    default:   ClassVar[Any]  = None
-    base_type: type
- 
-    @classmethod
-    def sizeof(cls) -> int:
-        name = cls.__name__
-        raise CodecError(f'Cannot get sizeof {name!r}')
+    base_type: ClassVar[tuple]
 
     @classmethod
     @abstractmethod
-    def encode(cls, ctx: Context, value: Any) -> bytes:
+    def encode(cls, ctx: Context, value: T) -> bytes:
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
-    def decode(cls, ctx: Context, raw: bytes) -> Any:
+    def decode(cls, ctx: Context, raw: bytes) -> T:
         raise NotImplementedError

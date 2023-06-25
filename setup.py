@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name='pystructs3',
-    version='0.0.4',
+    version='0.0.5',
     license='MIT',
     author='Andrew Scott',
     author_email='imgurbot12@gmail.com',
@@ -13,10 +13,10 @@ setup(
     description="Dataclass-Like Serialization Helpers for More Complex Data-Types",
     long_description=readme,
     long_description_content_type="text/markdown",
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     packages=find_packages(),
     install_requires=[
-        'dataclasses',
+        'pyderive3',
         'typing_extensions'
     ],
     classifiers=[
