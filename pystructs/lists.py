@@ -2,7 +2,6 @@
 List Codec Implementations
 """
 from typing import Protocol, ClassVar, Type, Generic, List, Tuple
-from typing_extensions import runtime_checkable
 
 from .codec import *
 from .integer import I, Integer
@@ -12,7 +11,7 @@ __all__ = ['SizedList', 'StaticList', 'GreedyList']
 
 #** Classes **#
 
-@runtime_checkable
+@protocol
 class SizedList(Codec[T], Protocol[I, T]):
     """
     Variable Sized List controlled by a Size-Hint Prefix
@@ -27,7 +26,7 @@ class SizedList(Codec[T], Protocol[I, T]):
         name = f'{cname(cls)}[{hint!r},{content!r}]'
         return type(name, (cls, ), {'hint': hint, 'content': content})
  
-    @classmethod
+    @protomethod
     def encode(cls, ctx: Context, value: List[T]) -> bytes:
         data  = bytearray()
         data += cls.hint.encode(ctx, len(value))
@@ -35,7 +34,7 @@ class SizedList(Codec[T], Protocol[I, T]):
             data += cls.content.encode(ctx, item)
         return bytes(data)
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> List[T]:
         size    = cls.hint.decode(ctx, raw)
         content = []
@@ -44,7 +43,7 @@ class SizedList(Codec[T], Protocol[I, T]):
             content.append(item)
         return content
 
-@runtime_checkable
+@protocol
 class StaticList(Codec[T], Protocol, Generic[I, T]):
     """
     Static List of the specified-type
@@ -60,7 +59,7 @@ class StaticList(Codec[T], Protocol, Generic[I, T]):
         name    = f'{cname(cls)}[{size!r},{content!r}]'
         return type(name, (cls,), {'size': size, 'content': content})
  
-    @classmethod
+    @protomethod
     def encode(cls, ctx: Context, value: List[T]) -> bytes:
         if len(value) != cls.size:
             raise CodecError(f'arraylen={len(value)} != {cls.size}')
@@ -69,7 +68,7 @@ class StaticList(Codec[T], Protocol, Generic[I, T]):
             data += cls.content.encode(ctx, item)
         return bytes(data)
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> List[T]:
         content = []
         for _ in range(0, cls.size):
@@ -77,6 +76,7 @@ class StaticList(Codec[T], Protocol, Generic[I, T]):
             content.append(item)
         return content
 
+@protocol
 class GreedyList(Codec[T], Protocol):
     """
     Greedy List that Consumes All Remaining Bytes
@@ -84,19 +84,19 @@ class GreedyList(Codec[T], Protocol):
     content:   ClassVar[Type[Codec]]
     base_type: ClassVar[tuple] = (list, )
 
-    def __class_getitem__(cls, content: T):
+    def __class_getitem__(cls, anno_content: T):
+        content = deanno(anno_content, Codec)
         name    = f'{cname(cls)}[{content!r}]'
-        content = deanno(content, Codec)
         return type(name, (cls,), {'content': content})
 
-    @classmethod
+    @protomethod
     def encode(cls, ctx: Context, value: List[T]) -> bytes:
         data = bytearray()
         for item in value:
             data += cls.content.encode(ctx, item)
         return bytes(data)
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> List[T]:
         content = []
         while ctx.index < len(raw):

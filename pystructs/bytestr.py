@@ -2,7 +2,7 @@
 ByteRange Serialization Implementations
 """
 from typing import Protocol, ClassVar, Type
-from typing_extensions import Annotated, runtime_checkable
+from typing_extensions import Annotated
 
 from .codec import *
 from .integer import Integer
@@ -12,7 +12,7 @@ __all__ = ['SizedBytes', 'StaticBytes', 'GreedyBytes']
 
 #** Classes **#
 
-@runtime_checkable
+@protocol
 class SizedBytes(Codec[T], Protocol):
     """
     Variable Sized Bytes Codec with Length Denoted by Prefixed Integer
@@ -23,23 +23,23 @@ class SizedBytes(Codec[T], Protocol):
     type:      ClassVar[Type]  = bytes 
     base_type: ClassVar[tuple] = (bytes, )
 
-    def __class_getitem__(cls, hint: T):
-        hint = deanno(hint, Integer)
+    def __class_getitem__(cls, anno_hint: T):
+        hint = deanno(anno_hint, Integer)
         name = f'{cname(cls)}[{cname(hint)}]'
         return type(name, (cls, ), {'hint': hint})
 
-    @classmethod
+    @protomethod
     def encode(cls, ctx: Context, content: bytes) -> bytes:
         hint = cls.hint.encode(ctx, len(content))
         ctx.index += len(content)
         return hint + content
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
         hint = cls.hint.decode(ctx, raw)
         return ctx.slice(raw, hint)
 
-@runtime_checkable
+@protocol
 class StaticBytes(Codec[bytes], Protocol):
     """
     Variable Staticly Sized Bytes Codec of a Pre-Determined Length
@@ -55,7 +55,7 @@ class StaticBytes(Codec[bytes], Protocol):
         name = f'{cname(cls)}[{size}]'
         return type(name, (cls, ), {'size': size})
 
-    @classmethod
+    @protomethod
     def encode(cls, ctx: Context, content: bytes) -> bytes:
         if len(content) > cls.size:
             raise CodecError(f'datalen={len(content)} >= {cls.size} bytes')
@@ -63,7 +63,7 @@ class StaticBytes(Codec[bytes], Protocol):
         content = content.ljust(cls.size, b'\x00')
         return content
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
         return ctx.slice(raw, cls.size).rstrip(b'\x00')
 

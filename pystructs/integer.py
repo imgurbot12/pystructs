@@ -3,7 +3,7 @@ Integer Codec Implementations
 """
 from enum import Enum
 from typing import Protocol, SupportsInt, Union, ClassVar, TypeVar
-from typing_extensions import Annotated, runtime_checkable
+from typing_extensions import Annotated
 
 from .codec import *
 
@@ -40,7 +40,7 @@ class IntFmt(Enum):
     BIG_ENDIAN    = 'big'
     LITTLE_ENDIAN = 'little'
 
-@runtime_checkable
+@protocol
 class Integer(Codec[SupportsInt], Protocol):
     max:       ClassVar[int]
     min:       ClassVar[int]
@@ -50,9 +50,12 @@ class Integer(Codec[SupportsInt], Protocol):
     base_type: ClassVar[tuple]  = (SupportsInt, )
 
     def __class_getitem__(cls, fmt: Union[str, IntFmt]):
+        """validate and generate integer subclass"""
+        assert isinstance(fmt, (str, IntFmt)), f'invalid integer format: {fmt}'
+        fmt = IntFmt[fmt] if isinstance(fmt, str) else fmt
         return type(cls.__name__, (cls, ), {'fmt': fmt})
 
-    @classmethod
+    @protomethod
     def encode(cls, ctx: Context, value: SupportsInt):
         """encode integer using settings encoded into the type"""
         value = int(value)
@@ -63,15 +66,16 @@ class Integer(Codec[SupportsInt], Protocol):
         ctx.index += cls.size
         return value.to_bytes(cls.size, cls.fmt.value, signed=cls.sign)
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> int:
         """decode integer from bytes using int-type settings"""
         data = ctx.slice(raw, cls.size)
         if len(data) != cls.size:
-            raise CodecError(f'datalen={len(data)} != {cls.__name__}')
+            raise CodecError(f'datalen={len(data)} != {cname(cls)}')
         value = int.from_bytes(data, cls.fmt.value, signed=cls.sign)
         return value
 
+@protocol
 class Signed(Integer, Protocol):
     sign: ClassVar[bool] = True
 
@@ -110,6 +114,7 @@ class _I128(Signed):
     max  = int(2**128 / 2) - 1
     size = 16
 
+@protocol
 class Unsigned(Integer, Protocol):
     sign: ClassVar[bool] = False
 

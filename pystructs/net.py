@@ -37,6 +37,7 @@ IpTypeHint = Union[Type[IPv4Address], Type[IPv6Address]]
 
 #** Classes **#
 
+@protocol
 class IpAddress(Codec[IP], Protocol):
     """
     Ipv4/Ipv6 Address Variable Codec Definition
@@ -45,14 +46,14 @@ class IpAddress(Codec[IP], Protocol):
     ip_type:   ClassVar[IpTypeHint]
     base_type: ClassVar[tuple]
 
-    @classmethod
+    @protomethod
     def encode(cls, ctx: Context, value: IpType) -> bytes:
         ipaddr = value if isinstance(value, cls.ip_type) else cls.ip_type(value)
         packed = ipaddr.packed #type: ignore
         ctx.index += cls.size
         return packed
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> IP:
         data = ctx.slice(raw, cls.size)
         return cls.ip_type(data) #type: ignore

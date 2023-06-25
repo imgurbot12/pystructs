@@ -10,7 +10,7 @@ from .codec import *
 __all__ = ['Const', 'Wrap']
 
 #: generic typevar bound to random type
-T2 = TypeVar('T2', bound=Type, contravariant=True)
+C = TypeVar('C', bound=Type, contravariant=True)
 
 #** Functions **#
 
@@ -20,6 +20,7 @@ def enum_types(e: Type[Enum]) -> set:
 
 #** Classes **#
 
+@protocol
 class Const(Codec[bytes], Protocol):
     """
     Bytes Constant to Inlcude in Serialized Data
@@ -31,7 +32,7 @@ class Const(Codec[bytes], Protocol):
         name = f'Const[{len(const)}]'
         return type(name, (cls, ), {'const': const})
  
-    @classmethod
+    @protomethod
     def encode(cls, ctx: Context, value: bytes) -> bytes:
         """encode and check const matches expected value"""
         if value != cls.const:
@@ -39,7 +40,7 @@ class Const(Codec[bytes], Protocol):
         ctx.index += len(cls.const)
         return value
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> bytes:
         """decode const and ensure value matches expected result"""
         value = ctx.slice(raw, len(cls.const))
@@ -47,15 +48,16 @@ class Const(Codec[bytes], Protocol):
             raise CodecError(f'{cname(cls)} invalid const: {value!r}')
         return value
 
-class Wrap(Codec, Protocol, Generic[T2, T]):
+@protocol
+class Wrap(Codec, Protocol, Generic[C, T]): #type: ignore
     """
     Content Wrapper/Unwrapper for Types like Enums
     """
-    wrap:      ClassVar[Type]
     codec:     ClassVar[Codec]
+    wrap:      ClassVar[Type]
     base_type: ClassVar[tuple]
 
-    def __class_getitem__(cls, settings: Tuple[T2, T]):
+    def __class_getitem__(cls, settings: Tuple[C, T]):
         codec, wrap = settings
         codec       = deanno(codec, Codec)
         wrap        = deanno(wrap, codec.base_type)
@@ -65,12 +67,12 @@ class Wrap(Codec, Protocol, Generic[T2, T]):
             base_types.extend(enum_types(wrap))
         kwargs = {'wrap': wrap, 'codec': codec, 'base_type': tuple(base_types)}
         return type(name, (cls,), kwargs)
- 
-    @classmethod
-    def encode(cls, ctx: Context, value: T):
+
+    @protomethod
+    def encode(cls, ctx: Context, value: C):
         wrapped = cls.wrap(value)
         return cls.codec.encode(ctx, wrapped)
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> T:
         return cls.wrap(cls.codec.decode(ctx, raw))

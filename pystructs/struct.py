@@ -2,7 +2,7 @@
 DataClass-Like Struct Implementation
 """
 from typing import Any, Type, Optional, ClassVar
-from typing_extensions import Self, dataclass_transform
+from typing_extensions import Self, dataclass_transform, get_type_hints
 
 from pyderive import MISSING, BaseField, dataclass, fields
 
@@ -23,10 +23,12 @@ def field(*_, **kwargs) -> Any:
 def compile(cls, slots: bool = True, **kwargs):
     """compile uncompiled structs"""
     global COMPILED
-    name = f'{cls.__module__}.{cls.__name__}'
-    if name in COMPILED:
+    name   = f'{cls.__module__}.{cls.__name__}'
+    hints  = tuple(get_type_hints(cls).items())
+    tohash = (name, hints)
+    if tohash in COMPILED:
         return
-    COMPILED.add(name)
+    COMPILED.add(tohash)
     newcls = dataclass(cls, field=Field, slots=slots, **kwargs)
     setattr(cls, '__slots__', getattr(newcls, '__slots__'))
 
@@ -40,6 +42,7 @@ class Field(BaseField):
         """compile codec/annotation"""
         self.anno = deanno(self.codec or self.anno, (Codec, Struct))
 
+@protocol(checkable=False)
 @dataclass_transform(field_specifiers=(Field, field))
 class Struct(Codec):
     base_type: ClassVar[tuple] = ()
@@ -66,7 +69,7 @@ class Struct(Codec):
                 raise ValueError(f'{cname(self)}.{f.name}: {e}') from None
         return bytes(encoded)
 
-    @classmethod
+    @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> Self:
         """decode the given raw-bytes into a compiled sequence"""
         kwargs = {}
