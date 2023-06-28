@@ -2,9 +2,9 @@
 DataClass-Like Struct Implementation
 """
 from typing import Any, Type, Optional, ClassVar
-from typing_extensions import Self, dataclass_transform, get_type_hints
+from typing_extensions import Self, dataclass_transform
 
-from pyderive import MISSING, BaseField, dataclass, fields
+from pyderive import MISSING, BaseField, dataclass, fields, gen_slots
 
 from .codec import *
 
@@ -23,14 +23,12 @@ def field(*_, **kwargs) -> Any:
 def compile(cls, slots: bool = True, **kwargs):
     """compile uncompiled structs"""
     global COMPILED
-    name   = f'{cls.__module__}.{cls.__name__}'
-    hints  = tuple(get_type_hints(cls).items())
-    tohash = (name, hints)
-    if tohash in COMPILED:
+    if cls in COMPILED:
         return
-    COMPILED.add(tohash)
-    newcls = dataclass(cls, field=Field, slots=slots, **kwargs)
-    setattr(cls, '__slots__', getattr(newcls, '__slots__'))
+    COMPILED.add(cls)
+    dataclass(cls, field=Field, **kwargs)
+    if slots:
+        setattr(cls, '__slots__', gen_slots(cls, fields(cls)))
 
 #** Classes **#
 
