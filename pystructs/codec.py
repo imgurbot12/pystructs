@@ -100,7 +100,9 @@ class Context:
 
     def reset(self):
         """reset variables in context to their default state"""
-        self.__init__()
+        self.index = 0
+        self.index_to_domain.clear()
+        self.domain_to_index.clear()
 
     def slice(self, raw: bytes, length: int) -> bytes:
         """

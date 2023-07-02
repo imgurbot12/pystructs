@@ -2,7 +2,7 @@
 DataClass-Like Struct Implementation
 """
 from typing import Any, Type, Optional, ClassVar
-from typing_extensions import Self, dataclass_transform
+from typing_extensions import Self, dataclass_transform, get_type_hints
 
 from pyderive import MISSING, BaseField, dataclass, fields, gen_slots
 
@@ -51,9 +51,34 @@ class Struct(Codec):
     def __init_subclass__(cls, **kwargs):
         compile(cls, **kwargs) 
         cls.base_type = (cls, )
+    
+    def pack(self) -> bytes:
+        """
+        pack contents into serialized bytes
+
+        :return: serialized struct contents
+        """
+        ctx = Context()
+        return self.encode(ctx)
+    
+    @classmethod
+    def unpack(cls, raw: bytes) -> Self:
+        """
+        unpack serialized bytes into struct object
+
+        :param raw: raw bytes to unpack into struct
+        :return:    deserialized struct object
+        """
+        ctx = Context()
+        return cls.decode(ctx, raw)
 
     def encode(self, ctx: Context) -> bytes:
-        """encode the compiled sequence fields into bytes"""
+        """
+        encode the compiled sequence fields into bytes
+
+        :param ctx: context helper used to encode bytes
+        :return:    packed and serialized struct object
+        """
         encoded = bytearray()
         for f in fields(self):
             value = getattr(self, f.name, f.default or MISSING)
@@ -69,7 +94,13 @@ class Struct(Codec):
 
     @protomethod
     def decode(cls, ctx: Context, raw: bytes) -> Self:
-        """decode the given raw-bytes into a compiled sequence"""
+        """
+        decode the given raw-bytes into a compiled sequence
+        
+        :param ctx: context helper used to decode bytes
+        :param raw: raw bytes content to decode
+        :return:    decoded struct object
+        """
         kwargs = {}
         for f in fields(cls):
             try:

@@ -1,10 +1,12 @@
 """
 Python Struct Utilities Library
 """
-from typing import Any
+from typing import Any, Sequence, Tuple, overload
 
 #** Variables **#
 __all__ = [
+    'pack',
+    'unpack',
     'encode',
     'decode',
 
@@ -57,27 +59,64 @@ __all__ = [
 
 #** Functions **#
 
-def encode(ctx: 'Context', value: Any, codec: Any) -> bytes:
+def pack(codecs: Any, *values: Any) -> bytes:
     """
     Encode the following value into bytes
 
-    :param value: value to encode in bytes using codec
-    :param codec: codec used to encode value
-    :return:      encoded bytes
+    :param codecs: codecs used to encode value
+    :param values: value to encode in bytes using codec
+    :return:       encoded bytes
     """
-    codec = deanno(codec, Codec)
-    return codec.encode(ctx, value)
+    ctx = Context()
+    return encode(ctx, codecs, *values)
 
-def decode(ctx: 'Context', raw: bytes, codec: Any) -> Any:
+def unpack(codecs: Any, raw: bytes) -> Tuple[Any, ...]:
     """
-    Decode the following bytes with the specified Codec
+    Decode the following bytes with specified Codec
 
-    :param raw:   raw bytes to decode
-    :param codec: codec implementation used to decode value
-    :return:      decoded bytes
+    :param raw:    raw bytes to decode
+    :param codecs: codec implementations used to decode value
+    :return:       decoded bytes
     """
-    codec = deanno(codec, Codec)
-    return codec.decode(ctx, raw)
+    ctx = Context()
+    return decode(ctx, codecs, raw)
+
+def encode(ctx: 'Context', codecs: Sequence[Any], *values: Any) -> bytes:
+    """
+    Encode the following value into bytes w/ Context
+
+    :param ctx:    context object used to encode value
+    :param codecs: codecs used to encode value
+    :param values: values to encode in bytes using codec
+    :return:       encoded bytes
+    """
+    codecs = (codecs, ) if not isinstance(codecs, Sequence) else codecs
+    if len(values) < len(codecs):
+        raise ValueError(f'Too few values. {len(codecs)} Specified.')
+    if len(values) > len(codecs):
+        raise ValueError(f'Too many values. {len(codecs)} Specified.')
+    content = bytearray()
+    for value, codec in zip(values, codecs):
+        codec    = deanno(codec, Codec)
+        content += codec.encode(ctx, value)
+    return bytes(content)
+
+def decode(ctx: 'Context', codecs: Sequence[Any], raw: bytes) -> Tuple[Any, ...]:
+    """
+    Decode the following bytes with the specified Codec w/ Context
+
+    :param ctx:    context object used to decode value
+    :param codecs: codec implementations used to decode value
+    :param raw:    raw bytes to decode
+    :return:       decoded bytes
+    """
+    codecs  = (codecs, ) if not isinstance(codecs, Sequence) else codecs
+    content = []
+    for codec in codecs:
+        codec = deanno(codec, Codec)
+        value = codec.decode(ctx, raw)
+        content.append(value)
+    return tuple(content)
 
 #** Imports **#
 from .struct import *
