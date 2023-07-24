@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name='pystructs3',
-    version='0.0.6',
+    version='0.0.7',
     license='MIT',
     author='Andrew Scott',
     author_email='imgurbot12@gmail.com',
@@ -16,8 +16,8 @@ setup(
     python_requires='>=3.8',
     packages=find_packages(),
     install_requires=[
-        'pyderive3',
-        'typing_extensions'
+        'pyderive3>=0.0.6',
+        'typing_extensions>=4.7.1'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

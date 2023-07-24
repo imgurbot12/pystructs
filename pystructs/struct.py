@@ -36,7 +36,7 @@ def compile(cls, slots: bool = True, **kwargs):
 class Field(BaseField):
     codec: Optional[Type[Codec]] = None
 
-    def finalize(self):
+    def __compile__(self, _):
         """compile codec/annotation"""
         self.anno = deanno(self.codec or self.anno, (Codec, Struct))
 
