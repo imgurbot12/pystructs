@@ -35,7 +35,15 @@ def deanno(anno: Any, prefix: str = '') -> Tuple[Wrapper, 'Field']:
         if origin is Annotated:
             args   = get_args(sub_anno)
             fields = [f for f in args if isinstance(f, Field)]
-            wrap   = args[0] if sub_anno is anno else wrap
+            #NOTE: a field annotations first argument may be used to wrap
+            # input/output to the relevant type (if supported).
+            # this is useful for working with things like ENUMS
+            # within struct definitions
+            farg = args[0]
+            if sub_anno is anno \
+                and get_origin(args[0]) is None \
+                and callable(farg):
+                wrap = farg
             if fields:
                 return (wrap, fields[0])
             annos.extend([f for f in args if isinstance(f, _AnnotatedAlias)])
