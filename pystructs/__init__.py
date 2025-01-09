@@ -2,7 +2,7 @@
 Python Dataclass Struct Library
 """
 from typing import Any, Optional, Sequence, Tuple, TypeVar, Union
-from typing_extensions import TypeVarTuple, _AnnotatedAlias
+from typing_extensions import _AnnotatedAlias
 
 #** Variables **#
 __all__ = [
@@ -51,7 +51,6 @@ __all__ = [
 ]
 
 T  = TypeVar('T')
-TT = TypeVarTuple('TT')
 
 #** Functions **#
 
