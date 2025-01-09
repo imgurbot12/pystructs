@@ -1,116 +1,83 @@
 """
-Network Related Codec Implementations
+Network Type Serializer Definitions
 """
 import re
 from ipaddress import IPv4Address, IPv6Address
-from typing import *
+from typing import List, Optional, Tuple
 from typing_extensions import Annotated
 
-from .codec import *
+from .abc import Context, Field
 
 #** Variables **#
 __all__ = [
-    'IpType',
-    'Ipv4Type',
-    'Ipv6Type',
-    'IpAddress',
+    'IPv4Field',
+    'IPv6Field',
+    'MACField',
+    'DomainField',
+
     'IPv4',
     'IPv6',
-    'MacAddr',
-    'Domain',
+    'MACAddr',
+    'Domain'
 ]
-
-#: generic typevar for ipv4/ipv6
-IP = TypeVar('IP', IPv4Address, IPv6Address)
-
-#: typehint for valid iptypes
-IpType = Union[str, bytes, IPv4Address, IPv6Address]
-
-#: typehint for valid ipv4 types
-Ipv4Type = Union[str, bytes, IPv4Address]
-
-#: typehitn for valid ipv6 types
-Ipv6Type = Union[str, bytes, IPv6Address]
-
-#: typehint for both ipaddr types
-IpTypeHint = Union[Type[IPv4Address], Type[IPv6Address]]
 
 #** Classes **#
 
-@protocol
-class IpAddress(Codec[IP], Protocol):
+class IPv4Field(Field[IPv4Address]):
     """
-    Ipv4/Ipv6 Address Variable Codec Definition
+    IPv4Address Serializer Field Definition
     """
-    size:      ClassVar[int]
-    ip_type:   ClassVar[IpTypeHint]
-    base_type: ClassVar[tuple]
 
-    @protomethod
-    def encode(cls, ctx: Context, value: IpType) -> bytes:
-        ipaddr = value if isinstance(value, cls.ip_type) else cls.ip_type(value)
-        packed = ipaddr.packed #type: ignore
-        ctx.index += cls.size
-        return packed
+    def _pack(self, value: IPv4Address, ctx: Context) -> bytes:
+        return ctx.track_bytes(value.packed)
 
-    @protomethod
-    def decode(cls, ctx: Context, raw: bytes) -> IP:
-        data = ctx.slice(raw, cls.size)
-        return cls.ip_type(data) #type: ignore
+    def _unpack(self, raw: bytes, ctx: Context) -> IPv4Address:
+        return IPv4Address(ctx.slice(raw, 4))
 
-class _IPv4(IpAddress[IPv4Address]):
+class IPv6Field(Field[IPv6Address]):
     """
-    IPv4 Codec Serialization
+    IPv6Address Serializer Field Definition
     """
-    size      = 4
-    ip_type   = IPv4Address
-    base_type = (str, bytes, IPv4Address)
 
-class _IPv6(IpAddress[IPv6Address]):
-    """
-    IPv6 Codec Serialization
-    """
-    size      = 16
-    ip_type   = IPv6Address
-    base_type = (str, bytes, IPv6Address) 
+    def _pack(self, value: IPv6Address, ctx: Context) -> bytes:
+        return ctx.track_bytes(value.packed)
 
-class _MacAddr(Codec[str]):
-    """
-    Serialized MacAddress Codec
-    """
-    replace:   re.Pattern      = re.compile('[:.-]')
-    base_type: ClassVar[tuple] = (str, bytes)
+    def _unpack(self, raw: bytes, ctx: Context) -> IPv6Address:
+        return IPv6Address(ctx.slice(raw, 16))
 
-    @classmethod
-    def encode(cls, ctx: Context, value: Union[str, bytes]) -> bytes:
-        if isinstance(value, bytes) and len(value) != 6:
-            raise CodecError(f'invalid mac-address: {value!r}')
-        if isinstance(value, str):
-            value = bytes.fromhex(cls.replace.sub('', value))
-        ctx.index += len(value)
-        return value
-
-    @classmethod
-    def decode(cls, ctx: Context, raw: bytes) -> str:
-        return ':'.join(f'{i:02x}' for i in ctx.slice(raw, 6))
-
-class _Domain(Codec[bytes]):
+class MACField(Field[str]):
     """
-    DNS Style Domain Serialization w/ Index Pointers to Eliminate Duplicates
+    MACAddress Serializer Field Definition
     """
-    ptr_mask:  ClassVar[int]   = 0xC0
-    base_type: ClassVar[tuple] = (bytes, )
+    replace: re.Pattern = re.compile('[:.-]')
 
-    @classmethod
-    def encode(cls, ctx: Context, value: bytes) -> bytes:
+    def _pack(self, value: str, ctx: Context) -> bytes:
+        packed = bytes.fromhex(self.replace.sub('', value))
+        if len(packed) != 6:
+            raise ValueError(f'invalid mac-address: {value!r}')
+        return ctx.track_bytes(packed)
+
+    def _unpack(self, raw: bytes, ctx: Context) -> str:
+        mac = ctx.slice(raw, 6)
+        if len(mac) != 6:
+            raise OverflowError('too little data to unpack macaddr(6)')
+        return ':'.join(f'{i:02x}' for i in mac)
+
+class DomainField(Field[bytes]):
+    """
+    DNS Domain Serializer Field Definition
+    """
+    ptr_mask: int = 0xC0
+
+    def _pack(self, value: bytes, ctx: Context) -> bytes:
         encoded = bytearray()
         while value:
             # check if ptr is an option for remaining domain
             if value in ctx.domain_to_index:
                 index      = ctx.domain_to_index[value]
                 pointer    = index.to_bytes(2, 'big')
-                encoded   += bytes((pointer[0] | cls.ptr_mask, pointer[1]))
-                ctx.index += 2 
+                encoded   += bytes((pointer[0] | self.ptr_mask, pointer[1]))
+                ctx.index += 2
                 return bytes(encoded)
             # save partial domain as index
             ctx.save_domain(value, ctx.index)
@@ -124,18 +91,17 @@ class _Domain(Codec[bytes]):
         ctx.index += 1
         return bytes(encoded)
 
-    @classmethod
-    def decode(cls, ctx: Context, raw: bytes) -> bytes:
+    def _unpack(self, raw: bytes, ctx: Context) -> bytes:
         domain: List[Tuple[bytes, Optional[int]]] = []
         while True:
             # check for length of domain component
-            length     = raw[ctx.index]
+            length = raw[ctx.index]
             ctx.index += 1
             if length == 0:
                 break
             # check if name is a pointer
-            if length & cls.ptr_mask == cls.ptr_mask:
-                name  = bytes((length ^ cls.ptr_mask, raw[ctx.index]))
+            if length & self.ptr_mask == self.ptr_mask:
+                name  = bytes((length ^ self.ptr_mask, raw[ctx.index]))
                 index = int.from_bytes(name, 'big')
                 base  = ctx.index_to_domain[index]
                 domain.append((base, None))
@@ -153,7 +119,9 @@ class _Domain(Codec[bytes]):
             ctx.save_domain(subname, index)
         return b'.'.join(name for name, _ in domain)
 
-IPv4    = Annotated[Ipv4Type, _IPv4]
-IPv6    = Annotated[Ipv6Type, _IPv6]
-MacAddr = Annotated[Union[str, bytes], _MacAddr]
-Domain  = Annotated[bytes, _Domain]
+#** Annotations **#
+
+IPv4    = Annotated[IPv4Address, IPv4Field()]
+IPv6    = Annotated[IPv6Address, IPv6Field()]
+MACAddr = Annotated[str, MACField()]
+Domain  = Annotated[bytes, DomainField()]

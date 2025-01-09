@@ -1,112 +1,102 @@
 """
-DataClass-Like Struct Implementation
+Serializer Struct Object Definition
 """
-from typing import Any, Type, Optional, ClassVar
-from typing_extensions import Self, dataclass_transform, get_type_hints
+from typing import Any, Optional, Type, cast
+from typing_extensions import Self, dataclass_transform
 
-from pyderive import MISSING, BaseField, dataclass, fields, gen_slots
+from pyderive import BaseField, dataclass, fields, gen_slots
 
-from .codec import *
+from .abc import Context, Field, deanno
 
 #** Variables **#
-__all__ = ['field', 'Field', 'Struct']
+__all__ = ['Struct', 'StructField', 'field']
 
 #: tracker of already compiled struct instances
 COMPILED = set()
 
 #** Functions **#
 
-def field(*_, **kwargs) -> Any:
-    """apply custom field to struct definition"""
-    return Field(**kwargs)
+def field(**kwargs) -> Any:
+    """
+    define serialization field metadata
 
-def compile(cls, slots: bool = True, **kwargs):
+    :param kwargs: arguments to pass to field definition
+    :return:       struct field definition
+    """
+    return StructField(**kwargs)
+
+def _compile(cls, slots: bool = True, **kwargs):
     """compile uncompiled structs"""
     global COMPILED
     if cls in COMPILED:
         return
     COMPILED.add(cls)
-    dataclass(cls, field=Field, **kwargs)
+    dataclass(cls, field=StructField, **kwargs)
     if slots:
         setattr(cls, '__slots__', gen_slots(cls, fields(cls)))
 
 #** Classes **#
 
-@dataclass(slots=True)
-class Field(BaseField):
-    codec: Optional[Type[Codec]] = None
+@dataclass
+class StructField(BaseField):
+    field: Optional[Field] = None
 
-    def __compile__(self, _):
-        """compile codec/annotation"""
-        self.anno = deanno(self.codec or self.anno, (Codec, Struct))
+    def __compile__(self, cls: Type):
+        """ensure serialization field is present"""
+        if self.field is None:
+            self.field = deanno(self.anno, f'{cls.__name__}.{self.name} ')
 
-@protocol(checkable=False)
-@dataclass_transform(field_specifiers=(Field, field))
-class Struct(Codec):
-    base_type: ClassVar[tuple] = ()
- 
-    def __init__(self):
-        raise NotImplementedError
+@dataclass_transform(field_specifiers=(StructField, field))
+class Struct(Field):
+    """
+    Collection of Serialization Fields to Pack/Unpack
+    """
 
     def __init_subclass__(cls, **kwargs):
-        compile(cls, **kwargs) 
-        cls.base_type = (cls, )
-    
-    def pack(self) -> bytes:
-        """
-        pack contents into serialized bytes
+        _compile(cls, **kwargs)
 
-        :return: serialized struct contents
-        """
-        ctx = Context()
-        return self.encode(ctx)
-    
     @classmethod
-    def unpack(cls, raw: bytes) -> Self:
-        """
-        unpack serialized bytes into struct object
-
-        :param raw: raw bytes to unpack into struct
-        :return:    deserialized struct object
-        """
-        ctx = Context()
-        return cls.decode(ctx, raw)
-
-    def encode(self, ctx: Context) -> bytes:
-        """
-        encode the compiled sequence fields into bytes
-
-        :param ctx: context helper used to encode bytes
-        :return:    packed and serialized struct object
-        """
-        encoded = bytearray()
-        for f in fields(self):
-            value = getattr(self, f.name, f.default or MISSING)
-            if value is MISSING:
-                raise ValueError(f'{cname(self)} missing attr {f.name!r}')
-            if not isinstance(value, f.anno.base_type):
-                raise ValueError(f'{cname(self)}.{f.name} invalid value: {value!r}')
+    def _pack(cls, value: Self, ctx: Context) -> bytes: #type: ignore
+        raw = bytearray()
+        for f in fields(cls):
+            field = cast(Field, cast(StructField, f).field)
             try:
-                encoded += f.anno.encode(ctx, value)
-            except (CodecError, ValueError, TypeError) as e:
-                raise ValueError(f'{cname(self)}.{f.name}: {e}') from None
-        return bytes(encoded)
+                val  = getattr(value, f.name)
+                raw += field._pack(val, ctx)
+            except (ValueError, OverflowError) as e:
+                raise e.__class__(f'{cls.__name__}.{f.name}->{e}') from None
+        return bytes(raw)
 
-    @protomethod
-    def decode(cls, ctx: Context, raw: bytes) -> Self:
-        """
-        decode the given raw-bytes into a compiled sequence
-        
-        :param ctx: context helper used to decode bytes
-        :param raw: raw bytes content to decode
-        :return:    decoded struct object
-        """
+    @classmethod
+    def _unpack(cls, raw: bytes, ctx: Context) -> Self: #type: ignore
         kwargs = {}
         for f in fields(cls):
+            field = cast(Field, cast(StructField, f).field)
             try:
-                value = f.anno.decode(ctx, raw)
-            except (CodecError, ValueError, TypeError) as e:
-                raise ValueError(f'{cname(cls)}.{f.name}: {e}') from None
-            if f.init:
+                value = field._unpack(raw, ctx)
                 kwargs[f.name] = value
+            except (ValueError, OverflowError) as e:
+                raise e.__class__(f'{cls.__name__}.{f.name}->{e}') from None
         return cls(**kwargs)
+
+    def pack(self, ctx: Optional[Context] = None) -> bytes:
+        """
+        pack struct fields into encoded bytes
+
+        :param ctx: serialization tracker for packaging multiple objects
+        :return:    packed bytes
+        """
+        ctx = ctx or Context()
+        return self._pack(self, ctx)
+
+    @classmethod
+    def unpack(cls, raw: bytes, ctx: Optional[Context] = None) -> Self:
+        """
+        unpack struct fields from encoded bytes
+
+        :param raw: raw encoded bytes to unpack
+        :param ctx: deserialization tracker for packaging multiple objects
+        :return:    unpacked struct object
+        """
+        ctx = ctx or Context()
+        return cls._unpack(raw, ctx)

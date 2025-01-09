@@ -3,19 +3,9 @@ PyStructs UnitTests
 """
 
 #** Variables **#
-__all__ = [
-    'IntegerTests',
-    'ByteStringTests',
-    'HelperTests',
-    'ListTests',
-    'NetTests',
-    'StructTests',
-]
+__all__ = ['NetSerializerTests', 'StdSerializerTests', 'StructTests']
 
 #** Imports **#
-from .bytestr import *
-from .helpers import *
-from .integer import *
-from .lists import *
-from .net import *
-from .struct import *
+from .net import NetSerializerTests
+from .std import StdSerializerTests
+from .struct import StructTests

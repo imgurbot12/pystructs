@@ -1,128 +1,106 @@
 """
-Python Struct Utilities Library
+Python Dataclass Struct Library
 """
-from typing import Any, Sequence, Tuple, overload
+from typing import Any, Optional, Sequence, Tuple, TypeVar, Union
+from typing_extensions import TypeVarTuple, _AnnotatedAlias
 
 #** Variables **#
 __all__ = [
     'pack',
     'unpack',
-    'encode',
-    'decode',
 
-    'field',
-    'Field',
-    'Struct',
-
+    'deanno',
     'Context',
-    'Codec',
-    'CodecError',
+    'Field',
 
-    'Integer',
-    'Signed',
-    'Unsigned',
+    'IPv4Field',
+    'IPv6Field',
+    'MACField',
+    'DomainField',
+    'IPv4',
+    'IPv6',
+    'MACAddr',
+    'Domain',
+
+    'deanno_int',
+    'IntHint',
+    'IntFmt',
+    'IntField',
+    'HintedBytes',
+    'StaticBytes',
+    'GreedyBytes',
+    'HintedList',
+    'StaticList',
+    'GreedyList',
     'I8',
     'I16',
-    'I24',
     'I32',
     'I48',
     'I64',
     'I128',
     'U8',
     'U16',
-    'U24',
     'U32',
     'U48',
     'U64',
     'U128',
-    
-    'SizedBytes', 
-    'StaticBytes', 
-    'GreedyBytes',
-    
-    'SizedList', 
-    'StaticList', 
-    'GreedyList',
-    
-    'IpType',
-    'Ipv4Type',
-    'Ipv6Type',
-    'IpAddress',
-    'IPv4',
-    'IPv6',
-    'MacAddr',
-    'Domain',
 
-    'Const',
-    'Wrap',
+    'field',
+    'Struct',
+    'StructField',
 ]
+
+T  = TypeVar('T')
+TT = TypeVarTuple('TT')
 
 #** Functions **#
 
-def pack(codecs: Any, *values: Any) -> bytes:
+def pack(fields: Sequence[Any],
+    *values: Any, ctx: Optional['Context'] = None) -> bytes:
     """
-    Encode the following value into bytes
+    pack struct fields into encoded bytes
 
-    :param codecs: codecs used to encode value
-    :param values: value to encode in bytes using codec
-    :return:       encoded bytes
+    :param fields: list of fields used to serialize values
+    :param values: list of values to match encoding fields
+    :param ctx:    serialization tracker for packaging multiple objects
+    :return:       packed bytes
     """
-    ctx = Context()
-    return encode(ctx, codecs, *values)
-
-def unpack(codecs: Any, raw: bytes) -> Tuple[Any, ...]:
-    """
-    Decode the following bytes with specified Codec
-
-    :param raw:    raw bytes to decode
-    :param codecs: codec implementations used to decode value
-    :return:       decoded bytes
-    """
-    ctx = Context()
-    return decode(ctx, codecs, raw)
-
-def encode(ctx: 'Context', codecs: Sequence[Any], *values: Any) -> bytes:
-    """
-    Encode the following value into bytes w/ Context
-
-    :param ctx:    context object used to encode value
-    :param codecs: codecs used to encode value
-    :param values: values to encode in bytes using codec
-    :return:       encoded bytes
-    """
-    codecs = (codecs, ) if not isinstance(codecs, Sequence) else codecs
-    if len(values) < len(codecs):
-        raise ValueError(f'Too few values. {len(codecs)} Specified.')
-    if len(values) > len(codecs):
-        raise ValueError(f'Too many values. {len(codecs)} Specified.')
+    if len(values) != len(fields):
+        raise OverflowError(f'{len(fields)} fields vs {len(values)} values.')
+    ctx     = ctx or Context()
     content = bytearray()
-    for value, codec in zip(values, codecs):
-        codec    = deanno(codec, Codec)
-        content += codec.encode(ctx, value)
+    for n, (field, value) in enumerate(zip(fields, values), 0):
+        packer = deanno(field, f'field({n}) ')
+        try:
+            content += packer._pack(value, ctx)
+        except (ValueError, OverflowError) as e:
+            name = packer.__class__.__name__
+            raise e.__class__(f'field({n})->{name}->{e}') from None
     return bytes(content)
 
-def decode(ctx: 'Context', codecs: Sequence[Any], raw: bytes) -> Tuple[Any, ...]:
+def unpack(fields: Sequence[Union['Field[T]', _AnnotatedAlias]],
+    raw: bytes, ctx: Optional['Context'] = None) -> Tuple[T]:
     """
-    Decode the following bytes with the specified Codec w/ Context
+    unpack struct fields from encoded bytes
 
-    :param ctx:    context object used to decode value
-    :param codecs: codec implementations used to decode value
-    :param raw:    raw bytes to decode
-    :return:       decoded bytes
+    :param fields: list of fields used to deserialize raw bytes
+    :param raw:    raw encoded bytes to unpack
+    :return:       unpacked struct field values
     """
-    codecs  = (codecs, ) if not isinstance(codecs, Sequence) else codecs
+    ctx     = ctx or Context()
     content = []
-    for codec in codecs:
-        codec = deanno(codec, Codec)
-        value = codec.decode(ctx, raw)
-        content.append(value)
+    for n, field in enumerate(fields, 0):
+        unpacker = deanno(field, f'field({n}) ')
+        try:
+            value = unpacker._unpack(raw, ctx)
+            content.append(value)
+        except (ValueError, OverflowError) as e:
+            name = unpacker.__class__.__name__
+            raise e.__class__(f'field({n})->{name}->{e}') from None
     return tuple(content)
 
 #** Imports **#
-from .struct import *
-from .codec import *
-from .integer import *
-from .bytestr import *
-from .lists import *
+from .abc import *
 from .net import *
-from .helpers import *
+from .std import *
+from .struct import *

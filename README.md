@@ -6,8 +6,6 @@ Implements a dataclass version of python's stdlib
 Structs decode values as defined by their type annotations and allows
 for simple, easy, and fast encoding/decoding of complex data-structures.
 
-
-
 ### Installation
 
 ```
@@ -21,15 +19,22 @@ pip install pystructs3
 ```python
 from pystructs import *
 
-class Foo(Struct):
-    x: U8
-    y: U16
+class Bar(Struct):
     z: U32
 
+class Foo(Struct):
+    x:   U8
+    y:   U16
+    bar: Bar
+
 # same as struct.pack('>BHI', 230, 6500, 2147483648)
-foo = Foo(230, 65000, 2147483648)
-print(foo)
-print(foo.pack())
+foo    = Foo(230, 65000, Bar(2147483648))
+packed = foo.pack()
+print('foo', foo)
+print('packed', packed)
+
+foo = Foo.unpack(packed)
+print('unpacked', foo)
 
 encoded = pack((U8, U16), 230, 65000)
 print(encoded)
@@ -42,52 +47,43 @@ print(decoded)
 
 ```python
 from pystructs import *
+from ipaddress import IPv4Address, IPv6Address
 from typing_extensions import Annotated
 
 class Foo(Struct):
     x:    I16
     y:    U32
     ip:   IPv4
-    data: Annotated[bytes, SizedBytes[U16]]
+    data: Annotated[bytes, HintedBytes(U16)]
 
 class Bar(Struct):
-    mac:  MacAddr
+    mac:  MACAddr
     ip6:  IPv6
-    data: Annotated[bytes, StaticBytes[16]]
+    data: Annotated[bytes, StaticBytes(16)]
+
+foo = Foo(69, 420, IPv4Address('1.2.3.4'), b'example message')
+bar = Bar('00:01:02:03:04:05', IPv6Address('::1'), b'message two')
+print('original foo+bar =', foo, bar)
+print(foo.x, 'equals', 69)
 
 # use context to encode/decode items in series
 ctx = Context()
-
-foo = Foo(69, 420, '1.2.3.4', b'example message')
-bar = Bar('00:01:02:03:04:05', '::1', b'message two')
-print(foo, bar)
-print(foo.x)
-
-raw = foo.encode(ctx) + bar.encode(ctx)
-print(raw)
+raw = foo.pack(ctx) + bar.pack(ctx)
+print('packed foo+bar =', raw)
 
 # reset context before switching between encoding/decoding
 ctx.reset()
 
-foo2 = Foo.decode(ctx, raw)
-bar2 = Bar.decode(ctx, raw)
-print(foo2, bar2)
+foo2 = Foo.unpack(raw, ctx)
+bar2 = Bar.unpack(raw, ctx)
+print('unpacked foo+bar =', foo2, bar2)
 
 ctx.reset()
-encoded = encode(ctx, (I16, IPv4), 1, '1.2.3.4') + \
-    encode(ctx, (U32, IPv6), 2, '::1')
+encoded = pack((I16, IPv4), 1, IPv4Address('1.2.3.4'), ctx=ctx) + \
+    pack((U32, IPv6), 2, IPv6Address('::1'), ctx=ctx)
 
 ctx.reset()
-item1 = decode(ctx, (I16, IPv4), encoded)
-item2 = decode(ctx, (U32, IPv6), encoded)
+item1 = unpack((I16, IPv4), encoded, ctx=ctx)
+item2 = unpack((U32, IPv6), encoded, ctx=ctx)
 print(item1, item2)
 ```
-
-### Limitations
-
-This implementation is intentionally simple and avoids doing things like
-allowing hierarchies of structured-objects or any real dynamic behavior
-outside of parsing a series of specified simple data-types. This is to
-avoid any complex class definitions that often feel overly esoteric and
-work like _magic_. Instead, dynamic parsing is left to standard python
-code to make things simpler and easier to read.

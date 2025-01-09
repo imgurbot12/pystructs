@@ -1,55 +1,70 @@
 """
-PyStructs Integer UnitTests
+PyStructs Struct Object UnitTests
 """
+import struct
 import unittest
-from ipaddress import IPv4Address
+from typing_extensions import Annotated
 
-from ..codec import *
-from ..struct import *
-from ..integer import I8, U32
-from ..net import IPv4
-from ..bytestr import GreedyBytes
+from pyderive import astuple
+
+from .. import *
 
 #** Variables **#
 __all__ = ['StructTests']
 
-EXAMPLE_IP4 = IPv4Address('127.0.0.1')
-
 #** Classes **#
 
 class StructTests(unittest.TestCase):
-    """Struct UnitTests"""
-    
-    @property
-    def ctx(self):
-        return Context()
-
-    def test_protocol(self):
-        """validate protocol usage errors"""
-        self.assertRaises(TypeError, Struct.decode, self.ctx, b'')
+    """Struct Object UnitTests"""
 
     def test_dataclass(self):
-        """test struct construction as a dataclass"""
+        """
+        ensure struct object functions as a dataclass
+        """
         class Foo(Struct):
             a: I8
-            b: I8
+            b: U16
             c: U32 = 3
         foo   = Foo(1, 2)
         slots = getattr(Foo, '__slots__')
+        self.assertEqual(foo.a, 1)
+        self.assertEqual(foo.b, 2)
         self.assertEqual(slots, ('a', 'b', 'c'))
-        self.assertRaises(TypeError, Foo, 1, 2, 3, 4)
+        self.assertRaises(TypeError, Foo, 1)
         self.assertRaises(TypeError, Foo, 1, 2, 3, 4)
 
-    def test_construct(self):
-        """test `Struct` as correct data structure"""
+    def test_simple(self):
+        """
+        ensure simple struct pack/unpack works as intended
+        """
         class Foo(Struct):
             a: I8
             b: U32
-            c: IPv4
-            d: bytes = field(codec=GreedyBytes)
-        foo     = Foo(1, 2, EXAMPLE_IP4, b'ayy lmao')
-        encoded = foo.encode(self.ctx)
-        decoded = Foo.decode(self.ctx, encoded)
-        recoded = decoded.encode(self.ctx)
-        self.assertEqual(decoded, foo)
-        self.assertEqual(encoded, recoded)
+            d: bytes = field(field=StaticBytes(6))
+        foo      = Foo(1, 2, b'greedy')
+        packed   = foo.pack()
+        unpacked = Foo.unpack(packed)
+        repacked = unpacked.pack()
+        self.assertEqual(foo, unpacked)
+        self.assertEqual(packed, repacked)
+        s_packed   = struct.pack('>bL6s', 1, 2, b'greedy')
+        s_unpacked = struct.unpack('>bL6s', packed)
+        self.assertEqual(s_packed, packed)
+        self.assertEqual(s_unpacked, astuple(foo))
+
+    def test_complex(self):
+        """
+        ensure complex struct pack/unpack works as intended
+        """
+        class Bar(Struct):
+            bar: U8
+            baz: Annotated[bytes, HintedBytes(U8)] = b'baz'
+        class Foo(Struct):
+            foo: I128
+            bar: Bar
+        foo      = Foo(1, Bar(2))
+        packed   = foo.pack()
+        unpacked = Foo.unpack(packed)
+        repacked = unpacked.pack()
+        self.assertEqual(foo, unpacked)
+        self.assertEqual(packed, repacked)
