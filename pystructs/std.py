@@ -1,12 +1,12 @@
 """
 Standard Serializer Type Defintions
 """
-from typing import Any, List, Literal, Union
+from typing import Any, List, Literal, Tuple, Union
 from typing_extensions import Annotated, _AnnotatedAlias
 
 from pyderive import dataclass
 
-from .abc import T, Context, Field, deanno
+from .abc import T, Context, Field, Wrapper, deanno
 
 #** Variables **#
 __all__ = [
@@ -45,18 +45,18 @@ IntSize = Literal[1, 2, 4, 6, 8, 16, 32]
 
 #** Functions **#
 
-def deanno_int(anno: Any, prefix: str = '') -> 'IntField':
+def deanno_int(anno: Any, prefix: str = '') -> Tuple[Wrapper, 'IntField']:
     """
     retrieve int-field definition from annotated type (if required)
 
     :param anno:   int-field annotation value
     :param prefix: prefix to include on error
-    :return:       field object definition
+    :return:       (field value wrappper, field object definition)
     """
-    field = deanno(anno, prefix)
+    wrapper, field = deanno(anno, prefix)
     if not isinstance(field, IntField):
         raise TypeError(f'{prefix}invalid integer annotation: {anno!r}')
-    return field
+    return wrapper, field
 
 #** Classes **#
 
@@ -87,7 +87,7 @@ class HintedBytes(Field[bytes]):
     __slots__ = ('hint', )
 
     def __init__(self, hint: IntHint):
-        self.hint: IntField = deanno_int(hint, 'HintedBytes ')
+        self.hint: IntField = deanno_int(hint, 'HintedBytes ')[1]
 
     def __repr__(self) -> str:
         return f'HintedBytes(hint={self.hint!r})'
@@ -134,11 +134,13 @@ class HintedList(Field[List[T]]):
     """
     Object List Serializer with Prefixed Sizehint
     """
-    __slots__ = ('hint', 'item')
+    __slots__ = ('hint', 'item', 'wrap')
 
     def __init__(self, hint: IntHint, item: Union[Field[T], _AnnotatedAlias]):
-        self.hint: IntField = deanno_int(hint, 'HintedList ')
-        self.item: Field[T] = deanno(item, 'HintedList ')
+        wrap, item = deanno(item, 'HintedList ')
+        self.hint: IntField = deanno_int(hint, 'HintedList ')[1]
+        self.item: Field[T] = item
+        self.wrap: Wrapper  = wrap
 
     def __repr__(self) -> str:
         return f'HintedList(hint={self.hint!r}, item={self.item!r})'
@@ -151,18 +153,20 @@ class HintedList(Field[List[T]]):
         return bytes(data)
 
     def _unpack(self, raw: bytes, ctx: Context) -> List[T]:
-        size = self.hint._unpack(raw, ctx)
-        return [self.item._unpack(raw, ctx) for _ in range(size)]
+        size  = self.hint._unpack(raw, ctx)
+        return [self.wrap(self.item._unpack(raw, ctx)) for _ in range(size)]
 
 class StaticList(Field[List[T]]):
     """
     Object List Serializer of Fixed Static Bytesize
     """
-    __slots__ = ('size', 'item')
+    __slots__ = ('size', 'item', 'wrap')
 
     def __init__(self, size: int, item: Union[Field[T], _AnnotatedAlias]):
+        wrapper, item = deanno(item, 'StaticList ')
         self.size: int      = size
-        self.item: Field[T] = deanno(item, 'StaticList ')
+        self.item: Field[T] = item
+        self.wrap: Wrapper  = wrapper
 
     def __repr__(self) -> str:
         return f'StaticList(size={self.size}, item={self.item!r})'
@@ -173,16 +177,18 @@ class StaticList(Field[List[T]]):
         return b''.join(self.item._pack(item, ctx) for item in value)
 
     def _unpack(self, raw: bytes, ctx: Context) -> List[T]:
-        return [self.item._unpack(raw, ctx) for _ in range(self.size)]
+        return [self.wrap(self.item._unpack(raw, ctx)) for _ in range(self.size)]
 
 class GreedyList(Field[List[T]]):
     """
     Object List Serializer of Unlimited Size
     """
-    __slots__ = ('item')
+    __slots__ = ('item', 'wrap')
 
     def __init__(self, item: Union[Field[T], _AnnotatedAlias]):
-        self.item: Field[T] = deanno(item, 'GreedyList ')
+        wrapper, item = deanno(item, 'GreedyList ')
+        self.item: Field[T] = item
+        self.wrap: Wrapper  = wrapper
 
     def __repr__(self) -> str:
         return f'GreedyList(item={self.item!r})'
@@ -193,7 +199,7 @@ class GreedyList(Field[List[T]]):
     def _unpack(self, raw: bytes, ctx: Context) -> List[T]:
         items = []
         while ctx.index < len(raw):
-            item = self.item._unpack(raw, ctx)
+            item = self.wrap(self.item._unpack(raw, ctx))
             items.append(item)
         return items
 

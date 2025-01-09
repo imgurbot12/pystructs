@@ -70,8 +70,9 @@ def pack(fields: Sequence[Any],
     ctx     = ctx or Context()
     content = bytearray()
     for n, (field, value) in enumerate(zip(fields, values), 0):
-        packer = deanno(field, f'field({n}) ')
+        wrapper, packer = deanno(field, f'field({n}) ')
         try:
+            value    = wrapper(value)
             content += packer._pack(value, ctx)
         except (ValueError, OverflowError) as e:
             name = packer.__class__.__name__
@@ -90,9 +91,10 @@ def unpack(fields: Sequence[Union['Field[T]', _AnnotatedAlias]],
     ctx     = ctx or Context()
     content = []
     for n, field in enumerate(fields, 0):
-        unpacker = deanno(field, f'field({n}) ')
+        wrapper, unpacker = deanno(field, f'field({n}) ')
         try:
             value = unpacker._unpack(raw, ctx)
+            value = wrapper(value)
             content.append(value)
         except (ValueError, OverflowError) as e:
             name = unpacker.__class__.__name__

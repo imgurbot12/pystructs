@@ -6,7 +6,7 @@ from typing_extensions import Self, dataclass_transform
 
 from pyderive import BaseField, dataclass, fields, gen_slots
 
-from .abc import Context, Field, deanno
+from .abc import Context, Field, Wrapper, deanno
 
 #** Variables **#
 __all__ = ['Struct', 'StructField', 'field']
@@ -40,11 +40,14 @@ def _compile(cls, slots: bool = True, **kwargs):
 @dataclass
 class StructField(BaseField):
     field: Optional[Field] = None
+    wrap:  Wrapper         = lambda x: x
 
     def __compile__(self, cls: Type):
-        """ensure serialization field is present"""
+        """ensure serialization field/wrapper is present"""
         if self.field is None:
-            self.field = deanno(self.anno, f'{cls.__name__}.{self.name} ')
+            wrap, field = deanno(self.anno, f'{cls.__name__}.{self.name} ')
+            self.field = field
+            self.wrap  = wrap
 
 @dataclass_transform(field_specifiers=(StructField, field))
 class Struct(Field):
@@ -59,10 +62,11 @@ class Struct(Field):
     def _pack(cls, value: Self, ctx: Context) -> bytes: #type: ignore
         raw = bytearray()
         for f in fields(cls):
-            field = cast(Field, cast(StructField, f).field)
+            field = cast(StructField, f)
+            wrap  = cast(Wrapper, field.wrap)
             try:
-                val  = getattr(value, f.name)
-                raw += field._pack(val, ctx)
+                val  = wrap(getattr(value, f.name))
+                raw += cast(Field, field.field)._pack(val, ctx)
             except (ValueError, OverflowError) as e:
                 raise e.__class__(f'{cls.__name__}.{f.name}->{e}') from None
         return bytes(raw)
@@ -71,10 +75,11 @@ class Struct(Field):
     def _unpack(cls, raw: bytes, ctx: Context) -> Self: #type: ignore
         kwargs = {}
         for f in fields(cls):
-            field = cast(Field, cast(StructField, f).field)
+            field = cast(StructField, f)
+            wrap  = cast(Wrapper, field.wrap)
             try:
-                value = field._unpack(raw, ctx)
-                kwargs[f.name] = value
+                value = cast(Field, field.field)._unpack(raw, ctx)
+                kwargs[f.name] = wrap(value)
             except (ValueError, OverflowError) as e:
                 raise e.__class__(f'{cls.__name__}.{f.name}->{e}') from None
         return cls(**kwargs)
