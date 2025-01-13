@@ -50,7 +50,7 @@ __all__ = [
     'StructField',
 ]
 
-T  = TypeVar('T')
+T = TypeVar('T')
 
 #** Functions **#
 

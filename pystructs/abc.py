@@ -2,7 +2,7 @@
 Dataclass Struct Definition Components and Utilities
 """
 from abc import abstractmethod
-from typing import Any, Callable, Dict, Optional, Protocol, Tuple, TypeVar
+from typing import Any, Callable, Dict, Protocol, Tuple, TypeVar
 from typing_extensions import (
     Annotated, _AnnotatedAlias, get_args, get_origin, runtime_checkable)
 
