@@ -157,3 +157,17 @@ class StdSerializerTests(unittest.TestCase):
         self.assertEqual(unpacked, value)
         self.assertEqual(packed, repacked)
 
+    def test_const(self):
+        """
+        ensure const packs/unpacks correctly
+        """
+        value    = b'hello'
+        const    = Const(value)
+        packed   = const._pack(value, self.ctx)
+        unpacked = const._unpack(packed, self.ctx)
+        repacked = const._pack(unpacked, self.ctx)
+        self.assertEqual(unpacked, value)
+        self.assertEqual(packed, repacked)
+        self.assertRaises(ValueError, const._pack, b'hell', self.ctx)
+        self.assertRaises(ValueError, const._unpack, b'hell', self.ctx)
+

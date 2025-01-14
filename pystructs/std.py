@@ -24,6 +24,8 @@ __all__ = [
     'StaticList',
     'GreedyList',
 
+    'Const',
+
     'I8',
     'I16',
     'I32',
@@ -202,6 +204,29 @@ class GreedyList(Field[List[T]]):
             item = self.wrap(self.item._unpack(raw, ctx))
             items.append(item)
         return items
+
+class Const(Field[bytes]):
+    """
+    Constant Static Bytes Assignment Field Validator
+    """
+    __slots__ = ('const', )
+
+    def __init__(self, const: bytes):
+        self.const = const
+
+    def __repr__(self):
+        return f'Const({self.const!r})'
+
+    def _pack(self, value: bytes, ctx: Context) -> bytes:
+        if value != self.const:
+            raise ValueError(f'{value!r} does not match const {self.const!r}')
+        return ctx.track_bytes(value)
+
+    def _unpack(self, raw: bytes, ctx: Context) -> bytes:
+        value = ctx.slice(raw, len(self.const))
+        if value != self.const:
+            raise ValueError(f'{value!r} does not match const {self.const!r}')
+        return value
 
 #** Annotations **#
 

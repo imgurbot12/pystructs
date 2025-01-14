@@ -32,6 +32,7 @@ __all__ = [
     'HintedList',
     'StaticList',
     'GreedyList',
+    'Const',
     'I8',
     'I16',
     'I32',
