@@ -3,7 +3,7 @@ Network Type Serializer Definitions
 """
 import re
 from ipaddress import IPv4Address, IPv6Address
-from typing import List, Optional, Tuple
+from typing import ClassVar, List, Optional, Tuple
 from typing_extensions import Annotated
 
 from .abc import Context, Field
@@ -67,7 +67,7 @@ class DomainField(Field[bytes]):
     """
     DNS Domain Serializer Field Definition
     """
-    ptr_mask: int = 0xC0
+    ptr_mask: ClassVar[int] = 0xC0
 
     def _pack(self, value: bytes, ctx: Context) -> bytes:
         encoded = bytearray()

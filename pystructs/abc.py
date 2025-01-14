@@ -61,7 +61,9 @@ class Context:
     domain_to_index: Dict[bytes, int] = field(default_factory=dict)
 
     def reset(self):
-        """reset variables in context to their default state"""
+        """
+        reset variables in context to their default state
+        """
         self.index = 0
         self.index_to_domain.clear()
         self.domain_to_index.clear()

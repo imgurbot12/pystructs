@@ -1,9 +1,10 @@
 PyStructs
 ---------
 
-[![PyPI version](https://img.shields.io/pypi/v/pystructs3)](https://pypi.org/project/pystructs3/)
-[![Python versions](https://img.shields.io/pypi/pyversions/pystructs3)](https://pypi.org/project/pystructs3/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/imgurbot12/pystructs/blob/master/LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/pystructs3?style=for-the-badge)](https://pypi.org/project/pystructs3/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pystructs3?style=for-the-badge)](https://pypi.org/project/pystructs3/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://github.com/imgurbot12/pystructs/blob/master/LICENSE)
+[![Made with Love](https://img.shields.io/badge/built%20with-%E2%99%A5-orange?style=for-the-badge)](https://github.com/imgurbot12/pystructs)
 
 A convenient
 [`dataclass`](https://docs.python.org/3/library/dataclasses.html)
